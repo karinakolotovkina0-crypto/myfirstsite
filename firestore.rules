@@ -7,9 +7,12 @@ service cloud.firestore {
     function isSelf(uid) {
       return signedIn() && request.auth.uid == uid;
     }
+    function isFriendChat(chatId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/lunaFriends/$(chatId))
+        && request.auth.uid in get(/databases/$(database)/documents/lunaFriends/$(chatId)).data.members;
+    }
 
-    // Profiles are visible to signed-in LUNA users for friend search.
-    // Each user may only edit their own profile.
     match /lunaProfiles/{uid} {
       allow read: if signedIn();
       allow create, update: if isSelf(uid)
@@ -24,7 +27,7 @@ service cloud.firestore {
     match /lunaFriendRequests/{requestId} {
       allow read: if signedIn()
         && (resource.data.fromUid == request.auth.uid
-            || resource.data.toUid == request.auth.uid);
+          || resource.data.toUid == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.fromUid == request.auth.uid
         && request.resource.data.toUid is string
@@ -42,7 +45,7 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
       allow delete: if signedIn()
         && (resource.data.fromUid == request.auth.uid
-            || resource.data.toUid == request.auth.uid);
+          || resource.data.toUid == request.auth.uid);
     }
 
     match /lunaFriends/{friendshipId} {
@@ -60,20 +63,27 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    match /lunaChats/{chatId}/messages/{messageId} {
-      function isFriendChat() {
-        return signedIn()
-          && exists(/databases/$(database)/documents/lunaFriends/$(chatId))
-          && request.auth.uid in get(/databases/$(database)/documents/lunaFriends/$(chatId)).data.members;
+    match /lunaChats/{chatId} {
+      allow read: if isFriendChat(chatId);
+      allow create: if isFriendChat(chatId)
+        && request.resource.data.members is list
+        && request.resource.data.members.size() == 2
+        && request.auth.uid in request.resource.data.members;
+      allow update: if isFriendChat(chatId)
+        && request.resource.data.members == resource.data.members
+        && request.resource.data.members.size() == 2;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isFriendChat(chatId);
+        allow create: if isFriendChat(chatId)
+          && request.resource.data.fromUid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.keys().hasOnly(['fromUid', 'text', 'createdAt']);
+        allow update, delete: if false;
       }
-      allow read: if isFriendChat();
-      allow create: if isFriendChat()
-        && request.resource.data.fromUid == request.auth.uid
-        && request.resource.data.text is string
-        && request.resource.data.text.size() > 0
-        && request.resource.data.text.size() <= 2000
-        && request.resource.data.keys().hasOnly(['fromUid', 'text', 'createdAt']);
-      allow update, delete: if false;
     }
   }
 }
