@@ -656,7 +656,8 @@ async function createRoom(e){
     var roomId="room_"+crypto.randomUUID().replace(/-/g,""),roomRef=roomPath(roomId),members=[user.uid];
     await db.runTransaction(function(tx){
       tx.set(roomRef,{type:type,title:title,description:description,ownerUid:user.uid,members:members,admins:[user.uid],createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
-      selected.forEach(function(uid){var inviteId=roomId+"~"+uid;tx.set(db.collection("lunaRoomInvites").doc(inviteId),{roomId:roomId,toUid:uid,fromUid:user.uid,status:"pending",createdAt:serverTimestamp()})})
+      selected.forEach(function(uid){var inviteId=roomId+"~"+uid;tx.set(db.collection("lunaRoomInvites").doc(inviteId),{roomId:roomId,toUid:uid,fromUid:user.uid,status:"pending",createdAt:serverTimestamp()})});
+      return Promise.resolve();
     });
     $("roomDialog").close();await loadRooms();await openRoom(roomId)
   }catch(err){$("roomFormStatus").textContent=socialError(err)}
@@ -683,8 +684,9 @@ function renderRoomMessages(snap,room){
   var el=$("chatMessages");
   el.innerHTML=snap.docs.map(function(d){
     var x=d.data(),mine=x.fromUid===user.uid,time=x.createdAt&&x.createdAt.toDate?x.createdAt.toDate().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"",imageMarkup=safeChatImage(x.image),sticker=isStickerMessage(x.text);
-    var name=mine?"Ты":(room?"Участница":"Подруга");
-    return '<div class="message-line '+(mine?"mine":"theirs")+'">'+avatarMarkup("",name,"message-avatar")+'<div class="bubble '+(mine?"mine":"theirs")+(sticker||imageMarkup?" visual-bubble":"")+'">'+(imageMarkup?'<img class="chat-photo" src="'+escapeHtml(imageMarkup)+'" alt="Фото в чате" loading="lazy">':renderMessageBody(x.text))+'<time>'+escapeHtml(time)+'</time></div></div>'
+    var sender=mine?{photo:photoData||user.photoURL||"",nick:$("nick").value||user.displayName||"Ты"}:(chatContacts.find(function(contact){return contact.uid===x.fromUid})||{photo:"",nick:x.nick||"Участница"});
+    var name=sender.nick|| (mine?"Ты":(room?"Участница":"Подруга"));
+    return '<div class="message-line '+(mine?"mine":"theirs")+'">'+avatarMarkup(sender.photo,name,"message-avatar")+'<div class="bubble '+(mine?"mine":"theirs")+(sticker||imageMarkup?" visual-bubble":"")+'">'+(imageMarkup?'<img class="chat-photo" src="'+escapeHtml(imageMarkup)+'" alt="Фото в чате" loading="lazy">':renderMessageBody(x.text))+'<time>'+escapeHtml(time)+'</time></div></div>'
   }).join("")||'<p class="muted chat-no-messages">Напиши первое сообщение ✨</p>';
   el.scrollTop=el.scrollHeight
 }
