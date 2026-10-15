@@ -130,7 +130,7 @@ a:focus-visible{outline:3px solid #000;outline-offset:3px}
 .chat-layout{display:grid;grid-template-columns:minmax(210px,280px) minmax(0,1fr);gap:16px;align-items:stretch;min-height:68vh}
 .chat-sidebar,.chat-stage{min-width:0;background:#e7e5e4;border:1px solid #595855;border-radius:9px;padding:16px}
 .chat-sidebar{max-height:74vh;overflow:auto}
-.chat-sidebar h2{font-size:22px;margin:2px 4px 14px}
+.chat-sidebar h2{font-size:22px;margin:2px 4px 14px}.chat-sidebar-title{display:flex;align-items:center;justify-content:space-between}.room-invitations:empty{display:none}.room-invitation{border:1px solid #8c8a82;border-radius:9px;padding:10px;margin:6px 0;background:#fff}.room-invitation p{margin:4px 0;font-size:12px}.room-invitation .row{gap:4px}.room-invitation .btn,.room-invitation .soft{font-size:12px;padding:7px 10px;min-height:34px}.room-divider{height:1px;background:#8c8a82;margin:10px 0}.chat-kind{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#45443f}.room-dialog{width:min(520px,calc(100vw - 28px));max-height:calc(100dvh - 30px);overflow:auto;border:1px solid #000;border-radius:12px;padding:0;background:#e7e5e4;color:#000}.room-dialog::backdrop{background:#0009}.room-dialog form{padding:22px}.room-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}.room-dialog-head h2{margin:0}.room-dialog-head p{margin:0 0 5px;font-size:11px;letter-spacing:.12em}.room-member-head{display:flex;flex-direction:column;margin:12px 0 6px}.room-member-choices{max-height:190px;overflow:auto;border:1px solid #8c8a82;border-radius:9px;background:white;padding:6px}.room-member-choice{display:flex;align-items:center;gap:9px;padding:7px;border-radius:7px;cursor:pointer}.room-member-choice:hover{background:#eee}.room-member-choice input{width:18px;height:18px;accent-color:#000}.room-member-choice .avatar{width:34px;height:34px;flex-basis:34px}.room-dialog-actions{justify-content:flex-end;margin-top:14px}.room-dialog-actions>*{flex:0 0 auto}
 .chat-list{display:flex;flex-direction:column;gap:6px}
 .chat-contact{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:10px;border:1px solid transparent;border-radius:9px;background:transparent;color:#000}
 .chat-contact:hover,.chat-contact:focus-visible,.chat-contact.active{background:#fff;border-color:#000}
@@ -203,8 +203,8 @@ a:focus-visible{outline:3px solid #000;outline-offset:3px}
 }
 
 /* Telegram-like scrolling chat and compact PNG stickers */
-.chat-layout{height:calc(100dvh - 270px);min-height:360px;max-height:900px;overflow:hidden}
-.chat-sidebar{height:100%;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.chat-layout{height:calc(100dvh - 300px);min-height:360px;max-height:1100px;overflow:hidden}
+.app.chat-mode{max-width:1480px;width:100%;padding-bottom:82px}.app.chat-mode .top{padding-inline:clamp(20px,4vw,60px)}.app.chat-mode #chat.page.active{min-height:0;height:calc(100dvh - 174px);display:flex;flex-direction:column;padding:16px clamp(16px,4vw,60px) 24px}.chat-titlebar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}.chat-titlebar h1{font-size:clamp(30px,4vw,44px);margin:0}.chat-titlebar p{margin:4px 0 0}.app.chat-mode .chat-layout{height:auto;max-height:none;min-height:0;flex:1}.chat-sidebar{height:100%;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .chat-stage{height:100%;min-height:0;overflow:hidden}
 .chat-panel{height:100%;min-height:0;overflow:hidden}
 .chat-messages{min-height:0;height:auto;flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:16px 8px}
@@ -222,10 +222,8 @@ a:focus-visible{outline:3px solid #000;outline-offset:3px}
 .chat-composer .btn{min-height:44px}
 .sticker-tray{max-height:90px}
 @media(max-width:680px){
- .chat-layout{height:calc(100dvh - 285px);min-height:340px;grid-template-rows:96px minmax(0,1fr);gap:8px}
- .chat-sidebar{height:96px;overflow:hidden}
- .chat-stage{height:100%;min-height:0}
- .chat-panel{height:100%;min-height:0}
+ .app.chat-mode{padding-bottom:82px}.app.chat-mode #chat.page.active{height:calc(100dvh - 157px);padding:10px 10px 16px}.app.chat-mode .chat-layout{height:auto;min-height:0;grid-template-rows:94px minmax(0,1fr);gap:8px}.chat-sidebar{height:94px;overflow:hidden}
+ .chat-titlebar{margin-bottom:8px}.chat-titlebar h1{font-size:27px}.chat-titlebar p{font-size:12px}.chat-stage{height:100%;min-height:0}.chat-panel{height:100%;min-height:0}.room-dialog form{padding:16px}
  .chat-messages{min-height:0;padding:10px 2px}
  .chat-sticker{width:76px;height:76px;max-height:76px}
  .sticker-tray{max-height:82px}
@@ -244,13 +242,13 @@ a:focus-visible{outline:3px solid #000;outline-offset:3px}
 <div class="panel hidden" id="signedInPanel"><div class="row" style="align-items:center"><img id="profilePhotoPreview" class="profile-photo hidden" alt="Фото профиля"><div><h2 id="profileGreeting">Привет!</h2><p class="muted" id="profileEmail"></p></div></div><div class="divider"></div><label class="field-label" for="profilePhotoInput">Фото профиля</label><input class="field" id="profilePhotoInput" type="file" accept="image/*"><button class="soft" type="button" id="removePhoto">Убрать фото</button><label class="field-label" for="nick">Никнейм</label><input class="field" id="nick" class="field" maxlength="40" placeholder="moonflower"><label class="field-label" for="bio">Коротко о себе</label><textarea class="field" id="bio" rows="3" maxlength="500" placeholder="Расскажи о себе…"></textarea><label class="field-label" for="interests">Мои интересы</label><input class="field" id="interests" maxlength="180" placeholder="Книги, бьюти, спорт…"><label class="field-label" for="favorites">Любимые вещи</label><input class="field" id="favorites" maxlength="180" placeholder="Музыка, фильмы, маленькие радости…"><label class="field-label" for="mood">Настроение сегодня</label><select class="field" id="mood"><option value="">Выбери настроение</option><option>🌷 Спокойное</option><option>✨ Вдохновлённое</option><option>🌙 Задумчивое</option><option>💗 Романтичное</option><option>☁️ Немного грустное</option><option>🔥 Полна энергии</option></select><button class="btn" id="saveProfile" type="button" style="width:100%">Сохранить профиль</button><button class="soft" id="signOut" type="button">Выйти из аккаунта</button><p class="note">Профиль и фото сохраняются на этом устройстве и в Firestore, если разрешают правила базы данных.</p></div></section>
 <section class="page" id="social"><h1>Друзья и чат 💌</h1><p class="muted">Найди участницу по точному никнейму, отправь заявку и переписывайся после подтверждения дружбы.</p><div class="panel"><h2>Найти подругу 🔎</h2><input class="field" id="friendSearch" maxlength="40" placeholder="Никнейм участницы"><button class="btn" id="searchFriend">Найти</button><div id="friendSearchResult" class="muted" style="margin-top:10px">Войди в аккаунт, чтобы искать участниц.</div></div><div class="panel"><h2>Заявки в друзья 🌷</h2><div id="friendRequests" class="muted">Войди в аккаунт, чтобы получать заявки.</div></div><div class="panel"><h2>Мои подруги 💗</h2><div id="friendsList" class="muted">Войди в аккаунт, чтобы увидеть подруг.</div></div><p class="note">Не отправляй незнакомым людям адрес, документы, пароли или коды подтверждения.</p></section>
 <section class="page" id="chat">
-<h1>Чаты</h1><p class="muted">Все переписки с подтверждёнными подругами — в одном месте.</p>
+<div class="chat-titlebar"><div><h1>Сообщения</h1><p class="muted">Личные чаты, группы и каналы</p></div><button type="button" class="btn" id="createRoom">＋ Создать</button></div>
 <div class="chat-layout">
-<aside class="chat-sidebar"><h2>Переписки</h2><div id="chatList" class="chat-list"><p class="muted">Войди в аккаунт, чтобы увидеть чаты.</p></div></aside>
+<aside class="chat-sidebar"><div class="chat-sidebar-title"><h2>Все чаты</h2><button type="button" class="soft chat-search-icon" id="chatSearchIcon" aria-label="Создать чат">＋</button></div><div id="roomInvitations" class="room-invitations"></div><div id="chatList" class="chat-list"><p class="muted">Войди в аккаунт, чтобы увидеть чаты.</p></div></aside>
 <div class="chat-stage">
 <div id="chatEmpty" class="chat-empty"><div class="chat-empty-mark">☾</div><h2>Выбери переписку</h2><p class="muted">Твои сообщения и стикеры появятся здесь.</p></div>
 <div id="chatPanel" class="chat-panel hidden">
-<header class="chat-header"><div id="chatAvatarSlot" class="chat-header-avatar"></div><div class="chat-header-name"><h2 id="chatWith">Чат</h2><span class="muted">Подруга в LUNA</span></div><button class="soft chat-back" type="button" data-page="social">К подругам</button></header>
+<header class="chat-header"><div id="chatAvatarSlot" class="chat-header-avatar"></div><div class="chat-header-name"><h2 id="chatWith">Чат</h2><span id="chatSubline" class="muted">Подруга в LUNA</span></div><button class="soft chat-back" type="button" data-page="social">Друзья</button></header>
 <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
 <details class="sticker-picker"><summary>Стикеры PNG</summary><div class="sticker-tray">
 <button type="button" class="sticker-button" data-sticker-url="https://media.tenor.com/iLaVz101FtgAAAAe/yay-mochi.png" aria-label="Отправить весёлый PNG-стикер"><img src="https://media.tenor.com/iLaVz101FtgAAAAe/yay-mochi.png" alt="Весёлый PNG-стикер" loading="lazy"></button>
@@ -261,6 +259,7 @@ a:focus-visible{outline:3px solid #000;outline-offset:3px}
 <form id="chatComposer" class="chat-composer"><button type="button" id="choosePhoto" class="soft photo-button" aria-label="Прикрепить фото">＋</button><input id="chatPhotoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><textarea class="field" id="chatInput" rows="2" maxlength="2000" placeholder="Напиши сообщение…" aria-label="Текст сообщения"></textarea><button class="btn" id="sendMessage" type="submit">Отправить</button></form>
 </div></div></div>
 </section>
+<dialog id="roomDialog" class="room-dialog"><form id="roomForm"><div class="room-dialog-head"><div><p class="muted">НОВАЯ ПЕРЕПИСКА</p><h2>Создать группу или канал</h2></div><button type="button" id="closeRoomDialog" class="soft" aria-label="Закрыть">✕</button></div><label class="field-label" for="roomType">Тип</label><select id="roomType" class="field"><option value="group">Группа — общаются все</option><option value="channel">Канал — пишет только создатель</option></select><label class="field-label" for="roomTitle">Название</label><input id="roomTitle" class="field" maxlength="60" required placeholder="Например, Девичник"><label class="field-label" for="roomDescription">Описание</label><textarea id="roomDescription" class="field" maxlength="300" rows="2" placeholder="О чём эта переписка?"></textarea><div class="room-member-head"><b>Пригласить подруг</b><span class="muted">Они подтвердят вступление</span></div><div id="roomMemberChoices" class="room-member-choices"></div><p id="roomFormStatus" class="muted"></p><div class="row room-dialog-actions"><button type="button" id="cancelRoom" class="soft">Отмена</button><button type="submit" class="btn" id="saveRoom">Создать</button></div></form></dialog>
 <section class="page" id="community"><h1>Девичник 💌</h1><p class="muted">Небольшие обсуждения для начала. Пока публикации хранятся только в этой открытой вкладке и не видны другим пользователям.</p><input class="field" id="postTitle" maxlength="100" placeholder="Название темы"><select class="field" id="postTopic"><option>Отношения</option><option>Красота</option><option>Жизнь</option><option>Учёба и работа</option><option>Другое</option></select><textarea class="field" id="postBody" rows="3" maxlength="2000" placeholder="Расскажи подробнее…"></textarea><button class="btn" id="publishPost">Опубликовать</button><div id="posts"></div></section>
 <section class="page" id="tarot"><h1>Таро и интуиция ✧</h1><p class="muted">Символы для саморефлексии, а не предсказание неизбежного.</p><div class="tarot" id="tarotCard"><b>☾</b>Твоя карта ждёт</div><div style="text-align:center"><button class="btn" id="drawCard">Вытянуть карту ✨</button></div><div class="panel" id="tarotMeaning">Подумай о вопросе и открой карту.</div><p class="note">Таро — развлечение и способ подумать о своих чувствах.</p></section>
 <section class="page" id="cycle"><h1>Мой цикл 🌸</h1><div class="panel"><label class="field-label" for="startDate">Дата начала последних месячных</label><input class="field" type="date" id="startDate"><button class="btn" id="saveCycle">Сохранить дату</button><p id="cycleMsg" class="muted">Добавь дату, чтобы отметить её в календаре.</p></div><div class="panel"><div class="row"><button class="soft" id="prevMonth">‹</button><h2 id="month" style="text-align:center"></h2><button class="soft" id="nextMonth">›</button></div><div class="calendar" id="calendar"></div></div><p class="note">Прогнозы приблизительны и не подходят для предотвращения беременности или диагностики. Дата хранится локально на этом устройстве.</p></section>
@@ -285,7 +284,7 @@ import {
 (function(){
 "use strict";
 var firebaseConfig={apiKey:"AIzaSyDvb-FYk1-osvvQtFwuv8kPPRBgBJJU9EQ",authDomain:"luna-a9fa5.firebaseapp.com",projectId:"luna-a9fa5",storageBucket:"luna-a9fa5.firebasestorage.app",messagingSenderId:"168033013342",appId:"1:168033013342:web:d2d948a3bd93f5cbd6eecf",measurementId:"G-06FRESS07P"};
-var firebaseApp=null,auth=null,db=null,user=null,mode="signup",activeChatUid=null,chatUnsub=null,photoData="",removePhoto=false,posts=[],cycleDate=new Date(),periodStart="",pet={food:70,happy:70,energy:70},chatContacts=[];
+var firebaseApp=null,auth=null,db=null,user=null,mode="signup",activeChatUid=null,activeRoomId=null,activeRoom=null,chatUnsub=null,photoData="",removePhoto=false,posts=[],cycleDate=new Date(),periodStart="",pet={food:70,happy:70,energy:70},chatContacts=[],roomChats=[],pendingRoomInvites=[];
 function $(id){return document.getElementById(id)}
 function status(message,type){var el=$("authStatus");if(el){el.textContent=message;el.className="status"+(type?" "+type:"");}}
 function socialStatus(id,message){var el=$(id);if(el)el.textContent=message;}
@@ -300,7 +299,7 @@ function makeFirestoreFacade(instance){return {collection:function(path){return 
 function timeout(promise,ms){var timer;return Promise.race([promise,new Promise(function(_,reject){timer=setTimeout(function(){var e=new Error("Запрос к Firestore не завершился за "+Math.round(ms/1000)+" секунд. Это может быть интернет, ограничения API-ключа или настройки Firestore.");e.code="luna/timeout";reject(e)},ms)})]).finally(function(){clearTimeout(timer)})}
 function errorText(e){var code=e&&e.code||"";var map={"luna/timeout":"Запрос к Firestore не завершился за отведённое время. Проверь доступность Firestore и обнови страницу.","luna/nickname-taken":"Этот никнейм уже занят. Выбери другой.","luna/invalid-nickname":"Никнейм должен быть от 2 до 40 символов и не содержать /.","luna/request-stale":"Заявка уже обработана. Обновляю список.","auth/email-already-in-use":"Эта почта уже зарегистрирована. Переключись на «Войти».","auth/invalid-email":"Введи корректный адрес электронной почты.","auth/weak-password":"Пароль должен содержать минимум 6 символов.","auth/invalid-credential":"Почта или пароль неверны. Проверь данные или восстанови пароль.","auth/user-not-found":"Аккаунт с этой почтой не найден. Создай аккаунт.","auth/wrong-password":"Неверный пароль. Используй восстановление пароля.","auth/operation-not-allowed":"В Firebase не включён Email/Password: Authentication → Sign-in method.","auth/network-request-failed":"Не удалось подключиться к Firebase. Проверь интернет и попробуй снова.","auth/too-many-requests":"Слишком много попыток. Подожди немного.","auth/unauthorized-domain":"Домен не разрешён. Добавь karinakolotovkina0-crypto.github.io в Firebase → Authentication → Settings → Authorized domains.","auth/invalid-api-key":"Firebase отклонил API-ключ. Проверь Web app config и ограничения ключа.","auth/app-not-authorized":"Firebase не разрешил вход этому приложению.","auth/configuration-not-found":"Проверь настройки Authentication в проекте luna-a9fa5.","permission-denied":"Firestore отклонил действие. Проверь, что новые правила Firestore опубликованы и соответствуют обновлённой версии LUNA.","unavailable":"Firestore недоступен. Проверь интернет.", "failed-precondition":"Firestore требует настройки индекса или базы. Пришли полный текст ошибки.", "not-found":"База или документ не найдены. Проверь, что используется проект luna-a9fa5."};return map[code]||("Ошибка "+(code||"без кода")+": "+(e&&e.message||"неизвестная ошибка"))}
 function setMode(next){mode=next;$("nickWrap").classList.toggle("hidden",mode!=="signup");$("authSubmit").textContent=mode==="signup"?"Создать аккаунт":"Войти";$("authPassword").autocomplete=mode==="signup"?"new-password":"current-password";$("modeSignup").style.fontWeight=mode==="signup"?"700":"400";$("modeLogin").style.fontWeight=mode==="login"?"700":"400";status(mode==="signup"?"Заполни поля, чтобы создать аккаунт.":"Введи почту и пароль от своего аккаунта.");}
-function page(id){document.querySelectorAll(".page").forEach(function(el){el.classList.toggle("active",el.id===id)});document.querySelectorAll("[data-page]").forEach(function(el){el.classList.toggle("active",el.dataset.page===id)});window.scrollTo({top:0,behavior:"auto"});if(id==="social")loadSocial();if(id==="cycle")renderCalendar()}
+function page(id){document.querySelectorAll(".page").forEach(function(el){el.classList.toggle("active",el.id===id)});document.querySelectorAll("[data-page]").forEach(function(el){el.classList.toggle("active",el.dataset.page===id)});document.querySelector(".app").classList.toggle("chat-mode",id==="chat");window.scrollTo({top:0,behavior:"auto"});if(id==="social")loadSocial();if(id==="chat"&&user)loadRooms();if(id==="cycle")renderCalendar()}
 function showUser(u){
   user=u;
   $("authForms").classList.toggle("hidden",!!u);
@@ -314,7 +313,7 @@ function showUser(u){
     status("Вход выполнен успешно 💗","success")
   }else{
     if(chatUnsub){chatUnsub();chatUnsub=null}
-    activeChatUid=null;chatContacts=[];renderChatList();
+    activeChatUid=null;activeRoomId=null;activeRoom=null;chatContacts=[];roomChats=[];pendingRoomInvites=[];renderChatList();
     $("chatPanel").classList.add("hidden");
     $("chatEmpty").classList.remove("hidden");
     status("Войди или создай аккаунт, чтобы начать.")
@@ -415,14 +414,14 @@ async function loadSocial(){
     var pending=incoming.docs.filter(function(d){return d.data().status==="pending"});
     $("friendRequests").innerHTML=pending.length?pending.map(function(d){var x=d.data();return '<div class="post request-card">'+avatarMarkup("",x.fromNick||"Участница LUNA","request-avatar")+'<div class="request-copy"><b>'+escapeHtml(x.fromNick||"Участница LUNA")+'</b><p>Хочет добавить тебя в друзья</p></div><button class="btn accept-request" data-id="'+escapeHtml(d.id)+'">Принять</button> <button class="soft decline-request" data-id="'+escapeHtml(d.id)+'">Отклонить</button></div>'}).join(""):"Пока нет новых заявок.";
     var fs=await timeout(db.collection("lunaFriends").where("members","array-contains",user.uid).limit(100).get(),15000);
-    if(fs.empty){chatContacts=[];renderChatList();$("friendsList").textContent="Пока никого нет — найди подругу по никнейму выше.";return}
+    if(fs.empty){chatContacts=[];await loadRooms();$("friendsList").textContent="Пока никого нет — найди подругу по никнейму выше.";return}
     var ids=[];fs.docs.forEach(function(d){(d.data().members||[]).forEach(function(id){if(id!==user.uid&&ids.indexOf(id)<0)ids.push(id)})});
     var profiles=await Promise.all(ids.map(function(id){return profileRef(id).get()}));
     chatContacts=profiles.filter(function(d){return d.exists}).map(function(d){var x=d.data();return {uid:x.uid||d.id,nick:x.nick||"Подруга",photo:x.photo||"",bio:x.interests||x.bio||"Участница LUNA",preview:"Пока нет сообщений"}})
     await Promise.all(chatContacts.map(async function(contact){try{var recent=await db.collection("lunaChats").doc(friendIdFor(user.uid,contact.uid)).collection("messages").orderBy("createdAt","desc").limit(1).get();if(recent.docs.length){var m=recent.docs[0].data();contact.preview=isStickerMessage(m.text)?"Отправлен стикер":String(m.text||"Сообщение").slice(0,72)}}catch(ignore){}}));
     chatContacts.sort(function(a,b){return a.nick.localeCompare(b.nick,"ru")});
     renderChatList();
-    $("friendsList").innerHTML=chatContacts.map(function(x){return '<div class="post friend-card">'+avatarMarkup(x.photo,x.nick,"friend-avatar")+'<div class="friend-copy"><b>'+escapeHtml(x.nick)+'</b><p>'+escapeHtml(x.bio)+'</p></div><button class="btn open-chat" data-uid="'+escapeHtml(x.uid)+'" data-nick="'+escapeHtml(x.nick)+'">Написать</button></div>'}).join("")||"Список подруг пока пуст."
+    $("friendsList").innerHTML=chatContacts.map(function(x){return '<div class="post friend-card">'+avatarMarkup(x.photo,x.nick,"friend-avatar")+'<div class="friend-copy"><b>'+escapeHtml(x.nick)+'</b><p>'+escapeHtml(x.bio)+'</p></div><button class="btn open-chat" data-uid="'+escapeHtml(x.uid)+'" data-nick="'+escapeHtml(x.nick)+'">Написать</button></div>'}).join("")||"Список подруг пока пуст.";await loadRooms()
   }catch(e){socialStatus("friendRequests",socialError(e));socialStatus("friendsList",socialError(e));$("chatList").innerHTML='<p class="muted">'+escapeHtml(socialError(e))+'</p>'}
 }
 async function searchFriend(){
@@ -605,6 +604,147 @@ async function sendPhoto(file){
 }
 function sendSticker(url){var safe=validStickerUrl(url);if(!safe){status("Этот стикер недоступен.","error");return}sendMessage("[[luna-sticker]]"+safe)}
 
+
+function roomAvatar(title){return avatarMarkup("",title||"LUNA","chat-contact-avatar")}
+function roomPath(id){return db.collection("lunaRooms").doc(id)}
+function roomPreview(x){if(x.type==="channel")return "Канал";return x.type==="group"?"Группа":"Чат"}
+function renderChatList(){
+  var list=$("chatList");if(!list)return;
+  if(!user){list.innerHTML='<p class="muted">Войди, чтобы увидеть переписки.</p>';return}
+  var friends=chatContacts.map(function(x){return '<button type="button" class="chat-contact'+(activeChatUid===x.uid&&!activeRoomId?" active":"")+'" data-uid="'+escapeHtml(x.uid)+'" data-nick="'+escapeHtml(x.nick)+'">'+avatarMarkup(x.photo,x.nick,"chat-contact-avatar")+'<span class="chat-contact-copy"><b>'+escapeHtml(x.nick)+'</b><small>'+escapeHtml(x.preview||"Личная переписка")+'</small></span></button>'});
+  var rooms=roomChats.map(function(x){return '<button type="button" class="chat-contact room-contact'+(activeRoomId===x.id?" active":"")+'" data-room-id="'+escapeHtml(x.id)+'">'+roomAvatar(x.title)+'<span class="chat-contact-copy"><span class="chat-kind">'+(x.type==="channel"?"КАНАЛ":"ГРУППА")+'</span><b>'+escapeHtml(x.title)+'</b><small>'+escapeHtml(x.description||roomPreview(x))+'</small></span></button>'});
+  list.innerHTML=(rooms.length?'<div class="room-divider"></div>'+rooms.join(""):"")+friends.join("")||'<p class="muted">Пока нет переписок. Создай группу или найди подруг в разделе «Общение».</p>'
+}
+function renderRoomInvitations(){
+  var el=$("roomInvitations");if(!el)return;
+  el.innerHTML=pendingRoomInvites.map(function(inv){return '<div class="room-invitation"><span class="chat-kind">'+(inv.room.type==="channel"?"ПРИГЛАШЕНИЕ В КАНАЛ":"ПРИГЛАШЕНИЕ В ГРУППУ")+'</span><b>'+escapeHtml(inv.room.title||"Новая переписка")+'</b><p>'+escapeHtml(inv.room.description||"Тебя пригласили присоединиться.")+'</p><div class="row"><button type="button" class="btn room-invite-accept" data-id="'+escapeHtml(inv.id)+'">Вступить</button><button type="button" class="soft room-invite-decline" data-id="'+escapeHtml(inv.id)+'">Отклонить</button></div></div>'}).join("")
+}
+async function loadRooms(){
+  if(!user||!db){roomChats=[];pendingRoomInvites=[];renderRoomInvitations();renderChatList();return}
+  try{
+    var results=await Promise.all([
+      db.collection("lunaRooms").where("members","array-contains",user.uid).limit(100).get(),
+      db.collection("lunaRoomInvites").where("toUid","==",user.uid).limit(100).get()
+    ]);
+    roomChats=results[0].docs.map(function(d){var x=d.data();return Object.assign({id:d.id},x)}).sort(function(a,b){return a.title.localeCompare(b.title,"ru")});
+    var inviteDocs=results[1].docs.filter(function(d){return d.data().status==="pending"});
+    var loaded=await Promise.all(inviteDocs.map(async function(d){var x=d.data();try{var room=await roomPath(x.roomId).get();return room.exists?{id:d.id,room:Object.assign({id:room.id},room.data())}:null}catch(ignore){return null}}));
+    pendingRoomInvites=loaded.filter(Boolean);renderRoomInvitations();renderChatList();
+    if(activeRoomId){var current=roomChats.find(function(x){return x.id===activeRoomId});if(current)activeRoom=current}
+    fillRoomMemberChoices()
+  }catch(e){socialStatus("roomFormStatus",socialError(e));renderChatList()}
+}
+function fillRoomMemberChoices(){
+  var el=$("roomMemberChoices");if(!el)return;
+  el.innerHTML=chatContacts.length?chatContacts.map(function(x){return '<label class="room-member-choice"><input type="checkbox" data-room-member="'+escapeHtml(x.uid)+'">'+avatarMarkup(x.photo,x.nick,"room-choice-avatar")+'<span>'+escapeHtml(x.nick)+'</span></label>'}).join(""):'<p class="muted">Сначала добавь подругу в LUNA — потом сможешь пригласить её сюда.</p>'
+}
+function openRoomDialog(){
+  if(!user){status("Сначала войди в аккаунт.","error");return}
+  $("roomTitle").value="";$("roomDescription").value="";$("roomFormStatus").textContent="";
+  document.querySelectorAll("[data-room-member]").forEach(function(el){el.checked=false});
+  fillRoomMemberChoices();$("roomDialog").showModal()
+}
+async function createRoom(e){
+  e.preventDefault();if(!user||!db)return;
+  var title=$("roomTitle").value.trim(),description=$("roomDescription").value.trim(),type=$("roomType").value;
+  var selected=Array.from(document.querySelectorAll("[data-room-member]:checked")).map(function(el){return el.dataset.roomMember});
+  if(title.length<2||title.length>60){$("roomFormStatus").textContent="Название должно быть длиной от 2 до 60 символов.";return}
+  if(description.length>300){$("roomFormStatus").textContent="Описание может содержать не более 300 символов.";return}
+  if(selected.length>18){$("roomFormStatus").textContent="За один раз можно пригласить до 18 подруг.";return}
+  var save=$("saveRoom");save.disabled=true;$("roomFormStatus").textContent="Создаём…";
+  try{
+    var roomId="room_"+crypto.randomUUID().replace(/-/g,""),roomRef=roomPath(roomId),members=[user.uid];
+    await db.runTransaction(function(tx){
+      tx.set(roomRef,{type:type,title:title,description:description,ownerUid:user.uid,members:members,admins:[user.uid],createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+      selected.forEach(function(uid){var inviteId=roomId+"~"+uid;tx.set(db.collection("lunaRoomInvites").doc(inviteId),{roomId:roomId,toUid:uid,fromUid:user.uid,status:"pending",createdAt:serverTimestamp()})})
+    });
+    $("roomDialog").close();await loadRooms();await openRoom(roomId)
+  }catch(err){$("roomFormStatus").textContent=socialError(err)}
+  finally{save.disabled=false}
+}
+async function handleRoomInvite(id,accept){
+  if(!user||!db)return;
+  try{
+    await db.runTransaction(async function(tx){
+      var inviteRef=db.collection("lunaRoomInvites").doc(id),inviteSnap=await tx.get(inviteRef);
+      if(!inviteSnap.exists||inviteSnap.data().toUid!==user.uid||inviteSnap.data().status!=="pending")throw new Error("Это приглашение уже обработано.");
+      var data=inviteSnap.data(),roomRef=roomPath(data.roomId),roomSnap=await tx.get(roomRef);
+      if(!roomSnap.exists)throw new Error("Эта группа или канал уже недоступны.");
+      if(accept){
+        var members=roomSnap.data().members||[];
+        if(members.indexOf(user.uid)<0){if(members.length>=50)throw new Error("В этой комнате уже 50 участниц.");tx.update(roomRef,{members:members.concat(user.uid),updatedAt:serverTimestamp()})}
+        tx.update(inviteRef,{status:"accepted"})
+      }else tx.update(inviteRef,{status:"declined"})
+    });
+    await loadRooms()
+  }catch(e){socialStatus("roomFormStatus",socialError(e));await loadRooms()}
+}
+function renderRoomMessages(snap,room){
+  var el=$("chatMessages");
+  el.innerHTML=snap.docs.map(function(d){
+    var x=d.data(),mine=x.fromUid===user.uid,time=x.createdAt&&x.createdAt.toDate?x.createdAt.toDate().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"",imageMarkup=safeChatImage(x.image),sticker=isStickerMessage(x.text);
+    var name=mine?"Ты":(room?"Участница":"Подруга");
+    return '<div class="message-line '+(mine?"mine":"theirs")+'">'+avatarMarkup("",name,"message-avatar")+'<div class="bubble '+(mine?"mine":"theirs")+(sticker||imageMarkup?" visual-bubble":"")+'">'+(imageMarkup?'<img class="chat-photo" src="'+escapeHtml(imageMarkup)+'" alt="Фото в чате" loading="lazy">':renderMessageBody(x.text))+'<time>'+escapeHtml(time)+'</time></div></div>'
+  }).join("")||'<p class="muted chat-no-messages">Напиши первое сообщение ✨</p>';
+  el.scrollTop=el.scrollHeight
+}
+async function openRoom(id){
+  if(!user||!db||!id)return;
+  if(chatUnsub){chatUnsub();chatUnsub=null}
+  activeRoomId=id;activeChatUid=null;page("chat");renderChatList();
+  $("chatEmpty").classList.add("hidden");$("chatPanel").classList.remove("hidden");
+  $("chatMessages").textContent="Загружаем сообщения…";
+  try{
+    var snap=await roomPath(id).get();if(!snap.exists){$("chatMessages").textContent="Комната не найдена.";return}
+    var room=Object.assign({id:snap.id},snap.data());if(room.members.indexOf(user.uid)<0){$("chatMessages").textContent="Прими приглашение, чтобы открыть эту переписку.";return}
+    activeRoom=room;$("chatWith").textContent=room.title;$("chatAvatarSlot").innerHTML=roomAvatar(room.title);
+    $("chatSubline").textContent=(room.type==="channel"?"Канал":"Группа")+" · "+room.members.length+" участниц";
+    var canWrite=room.type!=="channel"||room.ownerUid===user.uid;
+    $("chatInput").disabled=!canWrite;$("choosePhoto").disabled=!canWrite;$("sendMessage").disabled=!canWrite;
+    $("chatInput").placeholder=canWrite?"Напиши сообщение…":"В этом канале публикует только создатель";
+    chatUnsub=db.collection("lunaRooms").doc(id).collection("messages").orderBy("createdAt","asc").limit(100).onSnapshot(function(messages){renderRoomMessages(messages,room)},function(e){$("chatMessages").textContent=socialError(e)})
+  }catch(e){$("chatMessages").textContent=socialError(e)}
+}
+async function openChat(uid,nick){
+  if(!user||!db||!uid)return;
+  if(chatUnsub){chatUnsub();chatUnsub=null}
+  activeRoomId=null;activeRoom=null;activeChatUid=uid;page("chat");renderChatList();
+  $("chatEmpty").classList.add("hidden");$("chatPanel").classList.remove("hidden");
+  var contact=chatContacts.find(function(x){return x.uid===uid})||{uid:uid,nick:nick||"Подруга",photo:""};
+  $("chatWith").textContent=contact.nick||nick||"Чат";$("chatSubline").textContent="Подруга в LUNA";
+  $("chatInput").disabled=false;$("choosePhoto").disabled=false;$("sendMessage").disabled=false;$("chatInput").placeholder="Напиши сообщение…";
+  $("chatAvatarSlot").innerHTML=avatarMarkup(contact.photo,contact.nick,"chat-header-photo");$("chatMessages").textContent="Загружаем сообщения…";
+  var chatId=friendIdFor(user.uid,uid);
+  try{
+    var friendship=await db.collection("lunaFriends").doc(chatId).get();
+    if(!friendship.exists){$("chatMessages").textContent="Чат доступен только после подтверждения дружбы.";return}
+    await db.collection("lunaChats").doc(chatId).set({members:[user.uid,uid].sort(),updatedAt:serverTimestamp()},{merge:true});
+    chatUnsub=db.collection("lunaChats").doc(chatId).collection("messages").orderBy("createdAt","asc").limit(100).onSnapshot(function(snap){
+      var decorated={docs:snap.docs.map(function(d){var x=d.data();if(x.fromUid!==user.uid&&!x.nick){x.nick=contact.nick}return {id:d.id,data:function(){return x}}})};renderRoomMessages(decorated,null)
+    },function(e){$("chatMessages").textContent=socialError(e)})
+  }catch(e){$("chatMessages").textContent=socialError(e)}
+}
+async function sendMessage(customText){
+  if(!user||!db||(!activeChatUid&&!activeRoomId))return;
+  var value=(typeof customText==="string"?customText:$("chatInput").value).trim();if(!value)return;
+  if(activeRoom&&activeRoom.type==="channel"&&activeRoom.ownerUid!==user.uid){socialStatus("roomFormStatus","В канале писать может только создатель.");return}
+  var path=activeRoomId?db.collection("lunaRooms").doc(activeRoomId).collection("messages"):db.collection("lunaChats").doc(friendIdFor(user.uid,activeChatUid)).collection("messages"),button=$("sendMessage");
+  button.disabled=true;
+  try{await path.add({fromUid:user.uid,text:value,createdAt:serverTimestamp()});if(typeof customText!=="string")$("chatInput").value=""}
+  catch(e){$("chatMessages").textContent=socialError(e)}
+  finally{button.disabled=false;if(activeRoom&&activeRoom.type==="channel"&&activeRoom.ownerUid!==user.uid)button.disabled=true}
+}
+async function sendPhoto(file){
+  if(!user||!db||(!activeChatUid&&!activeRoomId))return;
+  if(activeRoom&&activeRoom.type==="channel"&&activeRoom.ownerUid!==user.uid)return;
+  var button=$("choosePhoto");button.disabled=true;
+  try{
+    var image=await compressChatPhoto(file),path=activeRoomId?db.collection("lunaRooms").doc(activeRoomId).collection("messages"):db.collection("lunaChats").doc(friendIdFor(user.uid,activeChatUid)).collection("messages");
+    await path.add({fromUid:user.uid,text:"",image:image,createdAt:serverTimestamp()});$("chatPhotoInput").value=""
+  }catch(e){var message=e&&e.code==="permission-denied"?"Правила Firestore не разрешили отправку. Проверь правила для групп и каналов в репозитории.":socialError(e);$("chatMessages").insertAdjacentHTML("beforeend",'<p class="status error">'+escapeHtml(message)+'</p>')}
+  finally{button.disabled=false;if(activeRoom&&activeRoom.type==="channel"&&activeRoom.ownerUid!==user.uid)button.disabled=true}
+}
+
 var tarot=[["Звезда","Надежда и восстановление. Что помогает тебе снова видеть возможности?","✧"],["Императрица","Забота, творчество и связь со своими потребностями. Где тебе нужно больше нежности?","♛"],["Луна","Неопределённость и внутренний мир. Какие чувства стоит понять?","☾"],["Сила","Мягкая смелость и терпение. Как поддержать себя без давления?","♌"],["Солнце","Ясность, радость и простые удовольствия. Что сегодня сделает день светлее?","☼"],["Отшельник","Пауза и честный разговор с собой. Какой ответ ты уже почти знаешь?","♧"]];
 function drawCard(){var c=tarot[Math.floor(Math.random()*tarot.length)];$("tarotCard").innerHTML="<b>"+c[2]+"</b>"+c[0];$("tarotMeaning").innerHTML="<h2>"+c[0]+"</h2><p>"+c[1]+"</p><p class='muted'>Запиши, что эта мысль значит лично для тебя.</p>"}
 function renderPosts(){var el=$("posts");el.innerHTML=posts.map(function(p,i){return '<div class="post"><div class="muted">'+escapeHtml(p.topic)+'</div><h3>'+escapeHtml(p.title)+'</h3><p>'+escapeHtml(p.body)+'</p><button class="soft like-post" data-index="'+i+'">♡ '+p.likes+'</button></div>'}).join("")||'<p class="muted">Пока нет тем. Начни обсуждение первой ✨</p>'}
@@ -614,8 +754,9 @@ function moveMonth(n){cycleDate.setMonth(cycleDate.getMonth()+n);renderCalendar(
 function saveCycle(){periodStart=$("startDate").value;if(!periodStart){$("cycleMsg").textContent="Сначала выбери дату.";return}localStorage.setItem("luna_cycle_start",periodStart);$("cycleMsg").textContent="Отмечено начало месячных: "+new Date(periodStart+"T12:00:00").toLocaleDateString("ru-RU");renderCalendar()}
 function renderCalendar(){var y=cycleDate.getFullYear(),m=cycleDate.getMonth(),first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();$("month").textContent=new Date(y,m,1).toLocaleDateString("ru-RU",{month:"long",year:"numeric"});var out=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(function(x){return '<div class="muted">'+x+"</div>"}).join("");for(var i=0;i<(first+6)%7;i++)out+="<div></div>";var now=new Date();for(var d=1;d<=days;d++){var date=y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"),cl=[];if(periodStart&&date>=periodStart&&date<new Date(new Date(periodStart+"T12:00:00").getTime()+5*86400000).toISOString().slice(0,10))cl.push("period");if(d===now.getDate()&&m===now.getMonth()&&y===now.getFullYear())cl.push("today");out+='<div class="'+cl.join(" ")+'">'+d+"</div>"}$("calendar").innerHTML=out}
 document.querySelectorAll("[data-page]").forEach(function(el){el.addEventListener("click",function(){page(el.dataset.page)})});
+$("createRoom").addEventListener("click",openRoomDialog);$("chatSearchIcon")&&$("chatSearchIcon").addEventListener("click",openRoomDialog);$("roomForm").addEventListener("submit",createRoom);$("roomType").addEventListener("change",function(){});$("closeRoomDialog").addEventListener("click",function(){$("roomDialog").close()});$("cancelRoom").addEventListener("click",function(){$("roomDialog").close()});
 $("modeSignup").addEventListener("click",function(){setMode("signup")});$("modeLogin").addEventListener("click",function(){setMode("login")});$("authForm").addEventListener("submit",submitAuth);$("resetPassword").addEventListener("click",resetPassword);$("saveProfile").addEventListener("click",saveProfile);$("signOut").addEventListener("click",signOut);$("searchFriend").addEventListener("click",searchFriend);$("chatComposer").addEventListener("submit",function(e){e.preventDefault();sendMessage()});$("choosePhoto").addEventListener("click",function(){$("chatPhotoInput").click()});$("chatPhotoInput").addEventListener("change",function(e){var file=e.target.files&&e.target.files[0];if(file)sendPhoto(file)});$("chatInput").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("chatComposer").requestSubmit()}});$("friendSearch").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();searchFriend()}});$("authEmail").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("authPassword").focus()}});$("publishPost").addEventListener("click",publishPost);$("drawCard").addEventListener("click",drawCard);$("saveCycle").addEventListener("click",saveCycle);$("prevMonth").addEventListener("click",function(){moveMonth(-1)});$("nextMonth").addEventListener("click",function(){moveMonth(1)});$("feedPet").addEventListener("click",function(){petAction("food")});$("playPet").addEventListener("click",function(){petAction("play")});$("sleepPet").addEventListener("click",function(){petAction("sleep")});
-document.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;if(b.classList.contains("add-friend"))sendRequest(b.dataset.uid,b.dataset.nick,b.dataset.nickLower);if(b.classList.contains("accept-request"))acceptRequest(b.dataset.id,true);if(b.classList.contains("decline-request"))acceptRequest(b.dataset.id,false);if(b.classList.contains("open-chat")||b.classList.contains("chat-contact"))openChat(b.dataset.uid,b.dataset.nick);if(b.classList.contains("sticker-button"))sendSticker(b.dataset.stickerUrl);if(b.classList.contains("like-post")){var p=posts[Number(b.dataset.index)];if(p){p.likes++;renderPosts()}}});
+document.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;if(b.classList.contains("add-friend"))sendRequest(b.dataset.uid,b.dataset.nick,b.dataset.nickLower);if(b.classList.contains("accept-request"))acceptRequest(b.dataset.id,true);if(b.classList.contains("decline-request"))acceptRequest(b.dataset.id,false);if(b.classList.contains("room-contact"))openRoom(b.dataset.roomId);else if(b.classList.contains("open-chat")||b.classList.contains("chat-contact"))openChat(b.dataset.uid,b.dataset.nick);if(b.classList.contains("room-invite-accept"))handleRoomInvite(b.dataset.id,true);if(b.classList.contains("room-invite-decline"))handleRoomInvite(b.dataset.id,false);if(b.classList.contains("sticker-button"))sendSticker(b.dataset.stickerUrl);if(b.classList.contains("like-post")){var p=posts[Number(b.dataset.index)];if(p){p.likes++;renderPosts()}}});
 try{periodStart=localStorage.getItem("luna_cycle_start")||"";$("startDate").value=periodStart}catch(e){}renderCalendar();renderPosts();setMode("signup");init();
 })();
 </script>
