@@ -47,7 +47,7 @@ function status(message,type){var el=$("authStatus");if(el){el.textContent=messa
 function socialStatus(id,message){var el=$(id);if(el)el.textContent=message;}
 function escapeHtml(value){return String(value==null?"":value).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 
-function wrapDocSnapshot(s){return {id:s.id,exists:s.exists(),data:function(){return s.data()},get:function(field){return s.get(field)}}}
+function wrapDocSnapshot(s){return {id:s.id,exists:s.exists,data:function(){return s.data()},get:function(field){return s.get(field)}}}
 function wrapQuerySnapshot(s){return {docs:s.docs.map(wrapDocSnapshot),empty:s.empty,size:s.size,forEach:function(fn){s.forEach(function(d){fn(wrapDocSnapshot(d))})}}}
 function wrapDocument(ref){return {_ref:ref,id:ref.id,get:function(){return fsGetDoc(ref).then(wrapDocSnapshot)},set:function(data,options){return options?fsSetDoc(ref,data,options):fsSetDoc(ref,data)},update:function(data){return fsUpdateDoc(ref,data)},delete:function(){return fsDeleteDoc(ref)},collection:function(name){return wrapCollection(fsCollection(ref,name))},onSnapshot:function(next,error){return fsOnSnapshot(ref,function(s){next(wrapDocSnapshot(s))},error)}}}
 function wrapQuery(ref){return {where:function(field,op,value){return wrapQuery(fsQuery(ref,fsWhere(field,op,value)))},limit:function(count){return wrapQuery(fsQuery(ref,fsLimit(count)))},orderBy:function(field,direction){return wrapQuery(fsQuery(ref,fsOrderBy(field,direction)))},get:function(){return fsGetDocs(ref).then(wrapQuerySnapshot)},onSnapshot:function(next,error){return fsOnSnapshot(ref,function(s){next(wrapQuerySnapshot(s))},error)}}}
