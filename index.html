@@ -231,6 +231,43 @@ a:focus-visible{outline:3px solid #000;outline-offset:3px}
  .chat-composer .field{font-size:16px}
  .chat-composer .btn{padding:9px 10px}
 }
+
+/* Mobile chat layout, independent scrolling, and narrow-screen safeguards. */
+@media(max-width:680px){
+ .app.chat-mode #chat.page.active{min-height:0;overflow:hidden}
+ .app.chat-mode .chat-titlebar{flex:0 0 auto;min-width:0}
+ .app.chat-mode .chat-titlebar>div{min-width:0}
+ .app.chat-mode .chat-titlebar h1{font-size:clamp(23px,7vw,28px);overflow-wrap:anywhere}
+ .app.chat-mode .chat-layout{width:100%;height:auto;min-height:0;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(100px,22dvh) minmax(0,1fr);gap:8px;overflow:hidden}
+ .app.chat-mode .chat-sidebar{display:flex;flex-direction:column;height:100%;min-width:0;min-height:0;max-height:none;overflow:hidden;padding:7px 9px}
+ .app.chat-mode .chat-sidebar-title{flex:0 0 auto;min-height:30px}
+ .app.chat-mode .room-invitations{flex:0 1 auto;max-height:38%;overflow-y:auto;overscroll-behavior:contain}
+ .app.chat-mode .chat-list{display:flex;flex:1 1 auto;flex-direction:column;min-width:0;min-height:0;overflow-x:hidden;overflow-y:auto;padding:2px;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable}
+ .app.chat-mode .chat-contact{display:flex;flex:0 0 auto;flex-direction:row;justify-content:flex-start;width:100%;min-width:0;min-height:54px;text-align:left;gap:10px;padding:5px 7px}
+ .app.chat-mode .chat-contact-avatar{width:42px;height:42px;flex:0 0 42px}
+ .app.chat-mode .chat-contact-copy{flex:1 1 auto;max-width:none;min-width:0;text-align:left}
+ .app.chat-mode .chat-contact-copy b{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+ .app.chat-mode .chat-contact-copy small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .app.chat-mode .chat-stage{width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;padding:9px}
+ .app.chat-mode .chat-panel{width:100%;height:100%;min-width:0;min-height:0;overflow:hidden}
+ .app.chat-mode .chat-header{flex:0 0 auto;min-width:0;gap:8px}
+ .app.chat-mode .chat-header-name{min-width:0}
+ .app.chat-mode .chat-header-name h2{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:17px}
+ .app.chat-mode .chat-messages{width:100%;height:0;min-width:0;min-height:0;flex:1 1 0;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable;padding:10px 2px}
+ .app.chat-mode .message-line{width:100%;max-width:100%;min-width:0;flex:0 0 auto}
+ .app.chat-mode .bubble{min-width:0;max-width:calc(100% - 42px)}
+ .app.chat-mode .chat-composer{flex:0 0 auto;min-width:0;gap:6px}
+ .app.chat-mode .chat-composer .field{width:0;min-width:0;flex:1 1 auto;font-size:16px;max-height:120px}
+ .app.chat-mode .chat-composer .btn{flex:0 0 auto;white-space:nowrap;padding-inline:9px}
+ .app.chat-mode .photo-button{flex:0 0 40px;width:40px;height:42px}
+ .app.chat-mode .sticker-picker{flex:0 0 auto;min-width:0}
+ .app.chat-mode .sticker-tray{width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+ .app.chat-mode .room-dialog{width:calc(100vw - 20px);max-width:520px;max-height:calc(100dvh - 20px);overflow-y:auto}
+ .app.chat-mode .room-member-choices{max-height:min(190px,28dvh);overflow-y:auto;-webkit-overflow-scrolling:touch}
+}
+@media(max-width:680px) and (max-height:700px){
+ .app.chat-mode .chat-layout{grid-template-rows:minmax(86px,19dvh) minmax(0,1fr)}
+}
 </style>
 </head>
 <body>
@@ -545,7 +582,7 @@ async function openChat(uid,nick){
     var friendship=await db.collection("lunaFriends").doc(chatId).get();
     if(!friendship.exists){$("chatMessages").textContent="Чат доступен только после подтверждения дружбы.";return}
     await db.collection("lunaChats").doc(chatId).set({members:[user.uid,uid].sort(),updatedAt:serverTimestamp()},{merge:true});
-    chatUnsub=db.collection("lunaChats").doc(chatId).collection("messages").orderBy("createdAt","asc").limit(100).onSnapshot(function(snap){
+    chatUnsub=db.collection("lunaChats").doc(chatId).collection("messages").orderBy("createdAt","desc").limit(100).onSnapshot(function(snap){
       $("chatMessages").innerHTML=snap.docs.map(function(d){
         var x=d.data(),mine=x.fromUid===user.uid,time=x.createdAt&&x.createdAt.toDate?x.createdAt.toDate().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"",messagePhoto=mine?(photoData||user.photoURL||""):contact.photo,messageName=mine?($("nick").value||user.displayName||"Ты"):contact.nick;
         var imageMarkup=safeChatImage(x.image),sticker=isStickerMessage(x.text);return '<div class="message-line '+(mine?"mine":"theirs")+'">'+avatarMarkup(messagePhoto,messageName,"message-avatar")+'<div class="bubble '+(mine?"mine":"theirs")+(sticker||imageMarkup?" visual-bubble":"")+'">'+(imageMarkup?'<img class="chat-photo" src="'+escapeHtml(imageMarkup)+'" alt="Фото в чате" loading="lazy">':renderMessageBody(x.text))+'<time>'+escapeHtml(time)+'</time></div></div>'
@@ -682,13 +719,14 @@ async function handleRoomInvite(id,accept){
 }
 function renderRoomMessages(snap,room){
   var el=$("chatMessages");
-  el.innerHTML=snap.docs.map(function(d){
+  var wasNearBottom=(el.scrollHeight-el.scrollTop-el.clientHeight)<72;
+  el.innerHTML=snap.docs.slice().reverse().map(function(d){
     var x=d.data(),mine=x.fromUid===user.uid,time=x.createdAt&&x.createdAt.toDate?x.createdAt.toDate().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"",imageMarkup=safeChatImage(x.image),sticker=isStickerMessage(x.text);
     var sender=mine?{photo:photoData||user.photoURL||"",nick:$("nick").value||user.displayName||"Ты"}:(chatContacts.find(function(contact){return contact.uid===x.fromUid})||{photo:"",nick:x.nick||"Участница"});
     var name=sender.nick|| (mine?"Ты":(room?"Участница":"Подруга"));
     return '<div class="message-line '+(mine?"mine":"theirs")+'">'+avatarMarkup(sender.photo,name,"message-avatar")+'<div class="bubble '+(mine?"mine":"theirs")+(sticker||imageMarkup?" visual-bubble":"")+'">'+(imageMarkup?'<img class="chat-photo" src="'+escapeHtml(imageMarkup)+'" alt="Фото в чате" loading="lazy">':renderMessageBody(x.text))+'<time>'+escapeHtml(time)+'</time></div></div>'
   }).join("")||'<p class="muted chat-no-messages">Напиши первое сообщение ✨</p>';
-  el.scrollTop=el.scrollHeight
+  if(wasNearBottom)el.scrollTop=el.scrollHeight
 }
 async function openRoom(id){
   if(!user||!db||!id)return;
@@ -704,7 +742,7 @@ async function openRoom(id){
     var canWrite=room.type!=="channel"||room.ownerUid===user.uid;
     $("chatInput").disabled=!canWrite;$("choosePhoto").disabled=!canWrite;$("sendMessage").disabled=!canWrite;
     $("chatInput").placeholder=canWrite?"Напиши сообщение…":"В этом канале публикует только создатель";
-    chatUnsub=db.collection("lunaRooms").doc(id).collection("messages").orderBy("createdAt","asc").limit(100).onSnapshot(function(messages){renderRoomMessages(messages,room)},function(e){$("chatMessages").textContent=socialError(e)})
+    chatUnsub=db.collection("lunaRooms").doc(id).collection("messages").orderBy("createdAt","desc").limit(100).onSnapshot(function(messages){renderRoomMessages(messages,room)},function(e){$("chatMessages").textContent=socialError(e)})
   }catch(e){$("chatMessages").textContent=socialError(e)}
 }
 async function openChat(uid,nick){
@@ -721,7 +759,7 @@ async function openChat(uid,nick){
     var friendship=await db.collection("lunaFriends").doc(chatId).get();
     if(!friendship.exists){$("chatMessages").textContent="Чат доступен только после подтверждения дружбы.";return}
     await db.collection("lunaChats").doc(chatId).set({members:[user.uid,uid].sort(),updatedAt:serverTimestamp()},{merge:true});
-    chatUnsub=db.collection("lunaChats").doc(chatId).collection("messages").orderBy("createdAt","asc").limit(100).onSnapshot(function(snap){
+    chatUnsub=db.collection("lunaChats").doc(chatId).collection("messages").orderBy("createdAt","desc").limit(100).onSnapshot(function(snap){
       var decorated={docs:snap.docs.map(function(d){var x=d.data();if(x.fromUid!==user.uid&&!x.nick){x.nick=contact.nick}return {id:d.id,data:function(){return x}}})};renderRoomMessages(decorated,null)
     },function(e){$("chatMessages").textContent=socialError(e)})
   }catch(e){$("chatMessages").textContent=socialError(e)}
