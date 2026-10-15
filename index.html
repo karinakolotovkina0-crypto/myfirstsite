@@ -125,6 +125,82 @@ h3{line-height:1.3}
 a{color:#000}
 a:focus-visible{outline:3px solid #000;outline-offset:3px}
 @media(max-width:520px){.hero:after{font-family:Arial,Helvetica,sans-serif!important}}
+
+/* Separate conversations screen */
+.chat-layout{display:grid;grid-template-columns:minmax(210px,280px) minmax(0,1fr);gap:16px;align-items:stretch;min-height:68vh}
+.chat-sidebar,.chat-stage{min-width:0;background:#e7e5e4;border:1px solid #595855;border-radius:9px;padding:16px}
+.chat-sidebar{max-height:74vh;overflow:auto}
+.chat-sidebar h2{font-size:22px;margin:2px 4px 14px}
+.chat-list{display:flex;flex-direction:column;gap:6px}
+.chat-contact{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:10px;border:1px solid transparent;border-radius:9px;background:transparent;color:#000}
+.chat-contact:hover,.chat-contact:focus-visible,.chat-contact.active{background:#fff;border-color:#000}
+.chat-contact-copy,.friend-copy,.request-copy{display:flex;flex-direction:column;min-width:0;gap:3px}
+.chat-contact-copy b,.friend-copy b,.request-copy b{font-size:14px;color:#000}
+.chat-contact-copy small{font-size:12px;color:#45443f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.avatar{width:46px;height:46px;flex:0 0 46px;border-radius:50%;object-fit:cover;background:#c4c3b6;border:1px solid #595855;color:#000}
+.avatar-fallback{display:inline-grid;place-items:center;font-weight:700;font-size:18px}
+.chat-stage{display:flex;flex-direction:column;min-height:68vh;background:#fff}
+.chat-empty{flex:1;display:grid;align-content:center;justify-items:center;text-align:center;padding:24px}
+.chat-empty-mark{width:62px;height:62px;border:1px solid #000;border-radius:50%;display:grid;place-items:center;font-size:30px;margin-bottom:10px}
+.chat-empty p{max-width:290px}
+.chat-panel{display:flex;flex-direction:column;flex:1;min-height:0}
+.chat-header{display:flex;align-items:center;gap:12px;padding:0 0 12px;border-bottom:1px solid #8c8a82}
+.chat-header-avatar .avatar{width:50px;height:50px}
+.chat-header-name{min-width:0;flex:1}
+.chat-header-name h2{font-size:20px;margin:0 0 2px}
+.chat-header-name .muted{font-size:12px}
+.chat-messages{flex:1;max-height:none;min-height:250px;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:18px 8px;margin:0;border:0;border-radius:0;background:#fff}
+.message-line{display:flex;align-items:flex-end;gap:8px;max-width:90%}
+.message-line.mine{align-self:flex-end;flex-direction:row-reverse}
+.message-line.theirs{align-self:flex-start}
+.message-avatar{width:34px;height:34px;flex-basis:34px;font-size:14px}
+.bubble{max-width:min(520px,100%);padding:10px 13px;border:1px solid #8c8a82;border-radius:14px;font-size:14px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.bubble.mine{background:#000;color:#fff;border-color:#000}
+.bubble.theirs{background:#e7e5e4;color:#000}
+.bubble time{color:inherit;opacity:.8;font-size:11px}
+.chat-sticker{display:block;width:min(220px,60vw);max-height:220px;object-fit:contain;border-radius:8px}
+.chat-no-messages{align-self:center;margin:auto}
+.sticker-picker{border-top:1px solid #8c8a82;padding:9px 0 4px}
+.sticker-picker summary{cursor:pointer;font-size:13px;font-weight:700;color:#000}
+.sticker-tray{display:flex;gap:8px;overflow-x:auto;padding:10px 2px}
+.sticker-button{flex:0 0 76px;width:76px;height:76px;padding:3px;border:1px solid #595855;border-radius:9px;background:#fff}
+.sticker-button:hover,.sticker-button:focus-visible{outline:2px solid #000;outline-offset:1px}
+.sticker-button img{display:block;width:100%;height:100%;object-fit:contain}
+.sticker-credit{font-size:11px;color:#45443f}
+.sticker-credit a{color:#000;text-decoration:underline}
+.chat-composer{display:flex;align-items:flex-end;gap:9px;padding-top:8px}
+.chat-composer .field{flex:1;resize:vertical;min-height:50px;margin:0}
+.chat-composer .btn{flex:0 0 auto}
+.friend-card{display:flex;align-items:center;gap:12px}
+.friend-card .friend-copy{flex:1}
+.friend-card .friend-copy p{font-size:13px;color:#45443f;margin:0}
+.request-card{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.request-card .request-copy{flex:1}
+.request-card p{margin:0;font-size:13px}
+.request-avatar{width:40px;height:40px;flex-basis:40px;font-size:15px}
+@media(max-width:680px){
+ .chat-layout{grid-template-columns:1fr;gap:10px;min-height:calc(100dvh - 240px)}
+ .chat-sidebar{max-height:none;padding:10px}
+ .chat-sidebar h2{font-size:18px;margin:0 4px 6px}
+ .chat-list{flex-direction:row;overflow-x:auto;padding-bottom:4px}
+ .chat-contact{flex:0 0 82px;flex-direction:column;justify-content:center;text-align:center;gap:4px;padding:6px 4px}
+ .chat-contact-avatar{width:44px;height:44px;flex-basis:44px}
+ .chat-contact-copy{max-width:76px}
+ .chat-contact-copy b{max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+ .chat-contact-copy small{display:none}
+ .chat-stage{min-height:55vh;padding:12px}
+ .chat-messages{min-height:220px;padding:12px 2px}
+ .chat-header{gap:8px}
+ .chat-header-name h2{font-size:18px}
+ .chat-back{font-size:12px}
+ .message-line{max-width:96%}
+ .chat-composer{gap:6px}
+ .chat-composer .btn{padding:9px 12px}
+ .friend-card{flex-wrap:wrap}
+ .request-card .btn{margin-left:50px}
+ .nav{justify-content:flex-start;overflow-x:auto}
+ .nav button{min-width:52px;font-size:9px}
+}
 </style>
 </head>
 <body>
@@ -134,12 +210,30 @@ a:focus-visible{outline:3px solid #000;outline-offset:3px}
 <section class="page" id="profile"><h1>Твой профиль 🌷</h1><div class="panel"><h2 id="authHeading">Добро пожаловать в LUNA</h2><p class="muted">Создай аккаунт или войди по электронной почте. Если кнопка не сработает, сообщение об ошибке появится здесь.</p><div id="authStatus" class="status" role="status" aria-live="polite">Подключаем безопасный вход…</div></div>
 <div class="panel" id="authForms"><div class="row"><button class="soft" type="button" id="modeSignup">Создать аккаунт</button><button class="soft" type="button" id="modeLogin">Уже есть аккаунт? Войти</button></div><form id="authForm" novalidate><div id="nickWrap"><label class="field-label" for="authNick">Имя или никнейм</label><input class="field" id="authNick" maxlength="40" autocomplete="nickname" placeholder="moonflower"></div><label class="field-label" for="authEmail">Электронная почта</label><input class="field" id="authEmail" type="email" maxlength="254" required autocomplete="email" placeholder="you@example.com"><label class="field-label" for="authPassword">Пароль</label><input class="field" id="authPassword" type="password" minlength="6" required autocomplete="new-password" placeholder="Минимум 6 символов"><button class="btn" id="authSubmit" type="submit" style="width:100%">Создать аккаунт</button></form><button class="soft" type="button" id="resetPassword">Забыли пароль?</button><p class="note">Не используй пароль от других сайтов. Никому не сообщай свой пароль или коды из писем.</p></div>
 <div class="panel hidden" id="signedInPanel"><div class="row" style="align-items:center"><img id="profilePhotoPreview" class="profile-photo hidden" alt="Фото профиля"><div><h2 id="profileGreeting">Привет!</h2><p class="muted" id="profileEmail"></p></div></div><div class="divider"></div><label class="field-label" for="profilePhotoInput">Фото профиля</label><input class="field" id="profilePhotoInput" type="file" accept="image/*"><button class="soft" type="button" id="removePhoto">Убрать фото</button><label class="field-label" for="nick">Никнейм</label><input class="field" id="nick" class="field" maxlength="40" placeholder="moonflower"><label class="field-label" for="bio">Коротко о себе</label><textarea class="field" id="bio" rows="3" maxlength="500" placeholder="Расскажи о себе…"></textarea><label class="field-label" for="interests">Мои интересы</label><input class="field" id="interests" maxlength="180" placeholder="Книги, бьюти, спорт…"><label class="field-label" for="favorites">Любимые вещи</label><input class="field" id="favorites" maxlength="180" placeholder="Музыка, фильмы, маленькие радости…"><label class="field-label" for="mood">Настроение сегодня</label><select class="field" id="mood"><option value="">Выбери настроение</option><option>🌷 Спокойное</option><option>✨ Вдохновлённое</option><option>🌙 Задумчивое</option><option>💗 Романтичное</option><option>☁️ Немного грустное</option><option>🔥 Полна энергии</option></select><button class="btn" id="saveProfile" type="button" style="width:100%">Сохранить профиль</button><button class="soft" id="signOut" type="button">Выйти из аккаунта</button><p class="note">Профиль и фото сохраняются на этом устройстве и в Firestore, если разрешают правила базы данных.</p></div></section>
-<section class="page" id="social"><h1>Друзья и чат 💌</h1><p class="muted">Найди участницу по точному никнейму, отправь заявку и переписывайся после подтверждения дружбы.</p><div class="panel"><h2>Найти подругу 🔎</h2><input class="field" id="friendSearch" maxlength="40" placeholder="Никнейм участницы"><button class="btn" id="searchFriend">Найти</button><div id="friendSearchResult" class="muted" style="margin-top:10px">Войди в аккаунт, чтобы искать участниц.</div></div><div class="panel"><h2>Заявки в друзья 🌷</h2><div id="friendRequests" class="muted">Войди в аккаунт, чтобы получать заявки.</div></div><div class="panel"><h2>Мои подруги 💗</h2><div id="friendsList" class="muted">Войди в аккаунт, чтобы увидеть подруг.</div></div><div class="panel"><h2>Сообщения ✨</h2><div id="chatEmpty" class="muted">Выбери подтверждённую подругу, чтобы открыть чат.</div><div id="chatPanel" class="hidden"><h3 id="chatWith"></h3><div id="chatMessages" class="chat-messages"></div><textarea class="field" id="chatInput" rows="2" maxlength="2000" placeholder="Напиши сообщение…"></textarea><button class="btn" id="sendMessage">Отправить 💌</button></div></div><p class="note">Не отправляй незнакомым людям адрес, документы, пароли или коды подтверждения.</p></section>
+<section class="page" id="social"><h1>Друзья и чат 💌</h1><p class="muted">Найди участницу по точному никнейму, отправь заявку и переписывайся после подтверждения дружбы.</p><div class="panel"><h2>Найти подругу 🔎</h2><input class="field" id="friendSearch" maxlength="40" placeholder="Никнейм участницы"><button class="btn" id="searchFriend">Найти</button><div id="friendSearchResult" class="muted" style="margin-top:10px">Войди в аккаунт, чтобы искать участниц.</div></div><div class="panel"><h2>Заявки в друзья 🌷</h2><div id="friendRequests" class="muted">Войди в аккаунт, чтобы получать заявки.</div></div><div class="panel"><h2>Мои подруги 💗</h2><div id="friendsList" class="muted">Войди в аккаунт, чтобы увидеть подруг.</div></div><p class="note">Не отправляй незнакомым людям адрес, документы, пароли или коды подтверждения.</p></section>
+<section class="page" id="chat">
+<h1>Чаты</h1><p class="muted">Все переписки с подтверждёнными подругами — в одном месте.</p>
+<div class="chat-layout">
+<aside class="chat-sidebar"><h2>Переписки</h2><div id="chatList" class="chat-list"><p class="muted">Войди в аккаунт, чтобы увидеть чаты.</p></div></aside>
+<div class="chat-stage">
+<div id="chatEmpty" class="chat-empty"><div class="chat-empty-mark">☾</div><h2>Выбери переписку</h2><p class="muted">Твои сообщения и стикеры появятся здесь.</p></div>
+<div id="chatPanel" class="chat-panel hidden">
+<header class="chat-header"><div id="chatAvatarSlot" class="chat-header-avatar"></div><div class="chat-header-name"><h2 id="chatWith">Чат</h2><span class="muted">Подруга в LUNA</span></div><button class="soft chat-back" type="button" data-page="social">К подругам</button></header>
+<div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+<details class="sticker-picker"><summary>Открыть GIF-стикеры</summary><div class="sticker-tray">
+<button type="button" class="sticker-button" data-sticker-url="https://media1.tenor.com/m/NxGCW4rFlGEAAAAd/happy-cat-happy-cat-face-meme.gif" aria-label="Отправить весёлого кота"><img src="https://media1.tenor.com/m/NxGCW4rFlGEAAAAd/happy-cat-happy-cat-face-meme.gif" alt="Весёлый кот" loading="lazy"></button>
+<button type="button" class="sticker-button" data-sticker-url="https://media1.tenor.com/m/uPh3If9z1x4AAAAd/boy-why-you-so-seal-cat.gif" aria-label="Отправить удивлённого кота"><img src="https://media1.tenor.com/m/uPh3If9z1x4AAAAd/boy-why-you-so-seal-cat.gif" alt="Удивлённый кот" loading="lazy"></button>
+<button type="button" class="sticker-button" data-sticker-url="https://c.tenor.com/xJ_mJ01nxmUAAAAC/yay-yes-yes-yes.gif" aria-label="Отправить GIF с радостью"><img src="https://c.tenor.com/xJ_mJ01nxmUAAAAC/yay-yes-yes-yes.gif" alt="Ура" loading="lazy"></button>
+<button type="button" class="sticker-button" data-sticker-url="https://media1.tenor.com/m/kCsUeB9U3U4AAAAC/excited-im-so-excited.gif" aria-label="Отправить восторженный GIF"><img src="https://media1.tenor.com/m/kCsUeB9U3U4AAAAC/excited-im-so-excited.gif" alt="Восторг" loading="lazy"></button>
+</div><small class="sticker-credit">Анимации загружаются с <a href="https://tenor.com/" target="_blank" rel="noopener noreferrer">Tenor</a>.</small></details>
+<form id="chatComposer" class="chat-composer"><textarea class="field" id="chatInput" rows="2" maxlength="2000" placeholder="Напиши сообщение…" aria-label="Текст сообщения"></textarea><button class="btn" id="sendMessage" type="submit">Отправить</button></form>
+</div></div></div>
+</section>
 <section class="page" id="community"><h1>Девичник 💌</h1><p class="muted">Небольшие обсуждения для начала. Пока публикации хранятся только в этой открытой вкладке и не видны другим пользователям.</p><input class="field" id="postTitle" maxlength="100" placeholder="Название темы"><select class="field" id="postTopic"><option>Отношения</option><option>Красота</option><option>Жизнь</option><option>Учёба и работа</option><option>Другое</option></select><textarea class="field" id="postBody" rows="3" maxlength="2000" placeholder="Расскажи подробнее…"></textarea><button class="btn" id="publishPost">Опубликовать</button><div id="posts"></div></section>
 <section class="page" id="tarot"><h1>Таро и интуиция ✧</h1><p class="muted">Символы для саморефлексии, а не предсказание неизбежного.</p><div class="tarot" id="tarotCard"><b>☾</b>Твоя карта ждёт</div><div style="text-align:center"><button class="btn" id="drawCard">Вытянуть карту ✨</button></div><div class="panel" id="tarotMeaning">Подумай о вопросе и открой карту.</div><p class="note">Таро — развлечение и способ подумать о своих чувствах.</p></section>
 <section class="page" id="cycle"><h1>Мой цикл 🌸</h1><div class="panel"><label class="field-label" for="startDate">Дата начала последних месячных</label><input class="field" type="date" id="startDate"><button class="btn" id="saveCycle">Сохранить дату</button><p id="cycleMsg" class="muted">Добавь дату, чтобы отметить её в календаре.</p></div><div class="panel"><div class="row"><button class="soft" id="prevMonth">‹</button><h2 id="month" style="text-align:center"></h2><button class="soft" id="nextMonth">›</button></div><div class="calendar" id="calendar"></div></div><p class="note">Прогнозы приблизительны и не подходят для предотвращения беременности или диагностики. Дата хранится локально на этом устройстве.</p></section>
 <section class="page" id="games"><h1>Маленькие радости 🧸</h1><div class="petbox"><div class="muted">ТВОЙ ВИРТУАЛЬНЫЙ ДРУГ</div><div class="pet">🐱</div><h2>Плюша</h2><p id="petMood" class="muted">Плюша рада тебя видеть!</p><div class="stats"><div>🍓 Сытость<b id="food">70</b></div><div>💗 Счастье<b id="happy">70</b></div><div>⚡ Энергия<b id="energy">70</b></div></div><button class="soft" id="feedPet">🍓 Покормить</button><button class="soft" id="playPet">🎀 Играть</button><button class="soft" id="sleepPet">🌙 Спать</button></div><h2 style="margin-top:22px">Игры из GirlsGoGames 🎮</h2><p class="muted">Игры открываются на сайте издателя. Старые Flash-игры могут не работать на современных устройствах.</p><div class="tiles"><a class="tile" href="https://www.girlsgogames.ru/igra/dark-chocolate-blackberry-cheesecake-saras-cooking-class" target="_blank" rel="noopener noreferrer"><span class="emoji">🍰</span><strong>Кухня Сары: чизкейк</strong><small>Готовим десерт ↗</small></a><a class="tile" href="https://www.girlsgogames.ru/" target="_blank" rel="noopener noreferrer"><span class="emoji">👗</span><strong>Одевалки</strong><small>Каталог игр ↗</small></a><a class="tile" href="https://www.girlsgogames.ru/" target="_blank" rel="noopener noreferrer"><span class="emoji">💄</span><strong>Макияж и красота</strong><small>Каталог игр ↗</small></a></div></section>
-<nav class="nav"><button class="active" data-page="home"><span>⌂</span>Главная</button><button data-page="tarot"><span>✧</span>Таро</button><button data-page="community"><span>♡</span>Общение</button><button data-page="cycle"><span>🌸</span>Цикл</button><button data-page="games"><span>♧</span>Игры</button><button data-page="social"><span>💬</span>Друзья</button></nav>
+<nav class="nav"><button class="active" data-page="home"><span>⌂</span>Главная</button><button data-page="tarot"><span>✧</span>Таро</button><button data-page="community"><span>♡</span>Общение</button><button data-page="cycle"><span>🌸</span>Цикл</button><button data-page="games"><span>♧</span>Игры</button><button data-page="social"><span>👭</span>Друзья</button><button data-page="chat"><span>💌</span>Чаты</button></nav>
 </main>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -159,7 +253,7 @@ import {
 (function(){
 "use strict";
 var firebaseConfig={apiKey:"AIzaSyDvb-FYk1-osvvQtFwuv8kPPRBgBJJU9EQ",authDomain:"luna-a9fa5.firebaseapp.com",projectId:"luna-a9fa5",storageBucket:"luna-a9fa5.firebasestorage.app",messagingSenderId:"168033013342",appId:"1:168033013342:web:d2d948a3bd93f5cbd6eecf",measurementId:"G-06FRESS07P"};
-var firebaseApp=null,auth=null,db=null,user=null,mode="signup",activeChatUid=null,chatUnsub=null,photoData="",removePhoto=false,posts=[],cycleDate=new Date(),periodStart="",pet={food:70,happy:70,energy:70};
+var firebaseApp=null,auth=null,db=null,user=null,mode="signup",activeChatUid=null,chatUnsub=null,photoData="",removePhoto=false,posts=[],cycleDate=new Date(),periodStart="",pet={food:70,happy:70,energy:70},chatContacts=[];
 function $(id){return document.getElementById(id)}
 function status(message,type){var el=$("authStatus");if(el){el.textContent=message;el.className="status"+(type?" "+type:"");}}
 function socialStatus(id,message){var el=$(id);if(el)el.textContent=message;}
@@ -188,7 +282,7 @@ function showUser(u){
     status("Вход выполнен успешно 💗","success")
   }else{
     if(chatUnsub){chatUnsub();chatUnsub=null}
-    activeChatUid=null;
+    activeChatUid=null;chatContacts=[];renderChatList();
     $("chatPanel").classList.add("hidden");
     $("chatEmpty").classList.remove("hidden");
     status("Войди или создай аккаунт, чтобы начать.")
@@ -283,17 +377,21 @@ async function ensureProfileDoc(account,nicknameOverride){
 }
 function socialError(e){return errorText(e)}
 async function loadSocial(){
-  if(!user||!db){socialStatus("friendRequests","Войди в аккаунт и подключи базу Firestore.");socialStatus("friendsList","Войди в аккаунт и подключи базу Firestore.");return}
+  if(!user||!db){socialStatus("friendRequests","Войди в аккаунт и подключи базу Firestore.");socialStatus("friendsList","Войди в аккаунт и подключи базу Firestore.");chatContacts=[];renderChatList();return}
   try{
     var incoming=await timeout(db.collection("lunaFriendRequests").where("toUid","==",user.uid).limit(100).get(),15000);
     var pending=incoming.docs.filter(function(d){return d.data().status==="pending"});
-    $("friendRequests").innerHTML=pending.length?pending.map(function(d){var x=d.data();return '<div class="post"><b>'+escapeHtml(x.fromNick||"Участница LUNA")+'</b><p>Хочет добавить тебя в друзья</p><button class="btn accept-request" data-id="'+d.id+'">Принять</button> <button class="soft decline-request" data-id="'+d.id+'">Отклонить</button></div>'}).join(""):"Пока нет новых заявок.";
+    $("friendRequests").innerHTML=pending.length?pending.map(function(d){var x=d.data();return '<div class="post request-card">'+avatarMarkup("",x.fromNick||"Участница LUNA","request-avatar")+'<div class="request-copy"><b>'+escapeHtml(x.fromNick||"Участница LUNA")+'</b><p>Хочет добавить тебя в друзья</p></div><button class="btn accept-request" data-id="'+escapeHtml(d.id)+'">Принять</button> <button class="soft decline-request" data-id="'+escapeHtml(d.id)+'">Отклонить</button></div>'}).join(""):"Пока нет новых заявок.";
     var fs=await timeout(db.collection("lunaFriends").where("members","array-contains",user.uid).limit(100).get(),15000);
-    if(fs.empty){$("friendsList").textContent="Пока никого нет — найди подругу по никнейму выше.";return}
+    if(fs.empty){chatContacts=[];renderChatList();$("friendsList").textContent="Пока никого нет — найди подругу по никнейму выше.";return}
     var ids=[];fs.docs.forEach(function(d){(d.data().members||[]).forEach(function(id){if(id!==user.uid&&ids.indexOf(id)<0)ids.push(id)})});
     var profiles=await Promise.all(ids.map(function(id){return profileRef(id).get()}));
-    $("friendsList").innerHTML=profiles.filter(function(d){return d.exists}).map(function(d){var x=d.data();return '<div class="post"><b>'+escapeHtml(x.nick||"Лунная девочка")+'</b><p>'+escapeHtml(x.interests||x.bio||"Участница LUNA")+'</p><button class="btn open-chat" data-uid="'+escapeHtml(x.uid||d.id)+'" data-nick="'+escapeHtml(x.nick||"Подруга")+'">Написать</button></div>'}).join("")||"Список подруг пока пуст."
-  }catch(e){socialStatus("friendRequests",socialError(e));socialStatus("friendsList",socialError(e))}
+    chatContacts=profiles.filter(function(d){return d.exists}).map(function(d){var x=d.data();return {uid:x.uid||d.id,nick:x.nick||"Подруга",photo:x.photo||"",bio:x.interests||x.bio||"Участница LUNA",preview:"Пока нет сообщений"}})
+    await Promise.all(chatContacts.map(async function(contact){try{var recent=await db.collection("lunaChats").doc(friendIdFor(user.uid,contact.uid)).collection("messages").orderBy("createdAt","desc").limit(1).get();if(recent.docs.length){var m=recent.docs[0].data();contact.preview=isStickerMessage(m.text)?"Отправлен стикер":String(m.text||"Сообщение").slice(0,72)}}catch(ignore){}}));
+    chatContacts.sort(function(a,b){return a.nick.localeCompare(b.nick,"ru")});
+    renderChatList();
+    $("friendsList").innerHTML=chatContacts.map(function(x){return '<div class="post friend-card">'+avatarMarkup(x.photo,x.nick,"friend-avatar")+'<div class="friend-copy"><b>'+escapeHtml(x.nick)+'</b><p>'+escapeHtml(x.bio)+'</p></div><button class="btn open-chat" data-uid="'+escapeHtml(x.uid)+'" data-nick="'+escapeHtml(x.nick)+'">Написать</button></div>'}).join("")||"Список подруг пока пуст."
+  }catch(e){socialStatus("friendRequests",socialError(e));socialStatus("friendsList",socialError(e));$("chatList").innerHTML='<p class="muted">'+escapeHtml(socialError(e))+'</p>'}
 }
 async function searchFriend(){
   var result=$("friendSearchResult"),button=$("searchFriend");
@@ -374,8 +472,67 @@ async function acceptRequest(id,accept){
   }catch(e){socialStatus("friendRequests",socialError(e));await loadSocial()}
 }
 
-async function openChat(uid,nick){if(!user||!db)return;if(chatUnsub){chatUnsub();chatUnsub=null}activeChatUid=uid;$("chatEmpty").classList.add("hidden");$("chatPanel").classList.remove("hidden");$("chatWith").textContent="Чат с "+nick+" 💗";$("chatMessages").textContent="Загружаем сообщения…";var chatId=friendIdFor(user.uid,uid);try{var f=await db.collection("lunaFriends").doc(chatId).get();if(!f.exists){$("chatMessages").textContent="Чат доступен только после подтверждения заявки в друзья.";return}await db.collection("lunaChats").doc(chatId).set({members:[user.uid,uid].sort(),updatedAt:serverTimestamp()},{merge:true});chatUnsub=db.collection("lunaChats").doc(chatId).collection("messages").orderBy("createdAt","asc").limit(100).onSnapshot(function(snap){$("chatMessages").innerHTML=snap.docs.map(function(d){var x=d.data(),mine=x.fromUid===user.uid,time=x.createdAt&&x.createdAt.toDate?x.createdAt.toDate().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"";return '<div class="bubble '+(mine?"mine":"theirs")+'">'+escapeHtml(x.text||"")+'<time>'+time+'</time></div>'}).join("")||'<p class="muted">Напиши первое сообщение ✨</p>';$("chatMessages").scrollTop=$("chatMessages").scrollHeight},function(e){$("chatMessages").textContent=socialError(e)})}catch(e){$("chatMessages").textContent=socialError(e)}}
-async function sendMessage(){if(!user||!db||!activeChatUid)return;var value=$("chatInput").value.trim();if(!value)return;var chatId=friendIdFor(user.uid,activeChatUid);$("sendMessage").disabled=true;try{await db.collection("lunaChats").doc(chatId).collection("messages").add({fromUid:user.uid,text:value,createdAt:serverTimestamp()});$("chatInput").value=""}catch(e){$("chatMessages").textContent=socialError(e)}finally{$("sendMessage").disabled=false}}
+function safeAvatarSource(value){
+  var source=String(value||"");
+  if(/^data:image\\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+=*$/i.test(source))return source;
+  try{var url=new URL(source);if(url.protocol==="https:")return url.href}catch(ignore){}
+  return "";
+}
+function avatarMarkup(photo,name,extraClass){
+  var title=String(name||"Подруга"),src=safeAvatarSource(photo);
+  return src?'<img class="avatar '+(extraClass||"")+'" src="'+escapeHtml(src)+'" alt="Аватар: '+escapeHtml(title)+'" loading="lazy">':'<span class="avatar avatar-fallback '+(extraClass||"")+'" aria-label="Аватар: '+escapeHtml(title)+'">'+escapeHtml(title.trim().charAt(0).toUpperCase()||"L")+'</span>'
+}
+function isStickerMessage(text){return String(text||"").indexOf("[[luna-sticker]]")===0}
+function validStickerUrl(value){
+  try{var url=new URL(String(value||""));return url.protocol==="https:"&&(/(^|\\.)tenor\\.com$/i.test(url.hostname)||/(^|\\.)giphy\\.com$/i.test(url.hostname))?url.href:""}catch(ignore){return ""}
+}
+function renderMessageBody(text){
+  var value=String(text||"");
+  if(isStickerMessage(value)){var url=validStickerUrl(value.slice("[[luna-sticker]]".length));if(url)return '<img class="chat-sticker" src="'+escapeHtml(url)+'" alt="GIF-стикер" loading="lazy">'}
+  return escapeHtml(value)
+}
+function renderChatList(){
+  var list=$("chatList");if(!list)return;
+  if(!user){list.innerHTML='<p class="muted">Войди в аккаунт, чтобы увидеть переписки.</p>';return}
+  if(!chatContacts.length){list.innerHTML='<p class="muted">Пока нет чатов. Сначала добавь подругу в разделе «Друзья».</p>';return}
+  list.innerHTML=chatContacts.map(function(x){return '<button type="button" class="chat-contact'+(activeChatUid===x.uid?" active":"")+'" data-uid="'+escapeHtml(x.uid)+'" data-nick="'+escapeHtml(x.nick)+'">'+avatarMarkup(x.photo,x.nick,"chat-contact-avatar")+'<span class="chat-contact-copy"><b>'+escapeHtml(x.nick)+'</b><small>'+escapeHtml(x.preview||"Открыть переписку")+'</small></span></button>'}).join("")
+}
+async function openChat(uid,nick){
+  if(!user||!db||!uid)return;
+  if(chatUnsub){chatUnsub();chatUnsub=null}
+  activeChatUid=uid;
+  page("chat");
+  renderChatList();
+  $("chatEmpty").classList.add("hidden");$("chatPanel").classList.remove("hidden");
+  var contact=chatContacts.find(function(x){return x.uid===uid})||{uid:uid,nick:nick||"Подруга",photo:""};
+  $("chatWith").textContent=contact.nick||nick||"Чат";
+  $("chatAvatarSlot").innerHTML=avatarMarkup(contact.photo,contact.nick,"chat-header-photo");
+  $("chatMessages").textContent="Загружаем сообщения…";
+  var chatId=friendIdFor(user.uid,uid);
+  try{
+    var friendship=await db.collection("lunaFriends").doc(chatId).get();
+    if(!friendship.exists){$("chatMessages").textContent="Чат доступен только после подтверждения дружбы.";return}
+    await db.collection("lunaChats").doc(chatId).set({members:[user.uid,uid].sort(),updatedAt:serverTimestamp()},{merge:true});
+    chatUnsub=db.collection("lunaChats").doc(chatId).collection("messages").orderBy("createdAt","asc").limit(100).onSnapshot(function(snap){
+      $("chatMessages").innerHTML=snap.docs.map(function(d){
+        var x=d.data(),mine=x.fromUid===user.uid,time=x.createdAt&&x.createdAt.toDate?x.createdAt.toDate().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"",messagePhoto=mine?(photoData||user.photoURL||""):contact.photo,messageName=mine?($("nick").value||user.displayName||"Ты"):contact.nick;
+        return '<div class="message-line '+(mine?"mine":"theirs")+'">'+avatarMarkup(messagePhoto,messageName,"message-avatar")+'<div class="bubble '+(mine?"mine":"theirs")+'">'+renderMessageBody(x.text)+'<time>'+escapeHtml(time)+'</time></div></div>'
+      }).join("")||'<p class="muted chat-no-messages">Напиши первое сообщение ✨</p>';
+      $("chatMessages").scrollTop=$("chatMessages").scrollHeight
+    },function(e){$("chatMessages").textContent=socialError(e)})
+  }catch(e){$("chatMessages").textContent=socialError(e)}
+}
+async function sendMessage(customText){
+  if(!user||!db||!activeChatUid)return;
+  var value=(typeof customText==="string"?customText:$("chatInput").value).trim();if(!value)return;
+  var chatId=friendIdFor(user.uid,activeChatUid),button=$("sendMessage");
+  button.disabled=true;
+  try{await db.collection("lunaChats").doc(chatId).collection("messages").add({fromUid:user.uid,text:value,createdAt:serverTimestamp()});if(typeof customText!=="string")$("chatInput").value=""}
+  catch(e){$("chatMessages").textContent=socialError(e)}
+  finally{button.disabled=false}
+}
+function sendSticker(url){var safe=validStickerUrl(url);if(!safe){status("Этот стикер недоступен.","error");return}sendMessage("[[luna-sticker]]"+safe)}
+
 var tarot=[["Звезда","Надежда и восстановление. Что помогает тебе снова видеть возможности?","✧"],["Императрица","Забота, творчество и связь со своими потребностями. Где тебе нужно больше нежности?","♛"],["Луна","Неопределённость и внутренний мир. Какие чувства стоит понять?","☾"],["Сила","Мягкая смелость и терпение. Как поддержать себя без давления?","♌"],["Солнце","Ясность, радость и простые удовольствия. Что сегодня сделает день светлее?","☼"],["Отшельник","Пауза и честный разговор с собой. Какой ответ ты уже почти знаешь?","♧"]];
 function drawCard(){var c=tarot[Math.floor(Math.random()*tarot.length)];$("tarotCard").innerHTML="<b>"+c[2]+"</b>"+c[0];$("tarotMeaning").innerHTML="<h2>"+c[0]+"</h2><p>"+c[1]+"</p><p class='muted'>Запиши, что эта мысль значит лично для тебя.</p>"}
 function renderPosts(){var el=$("posts");el.innerHTML=posts.map(function(p,i){return '<div class="post"><div class="muted">'+escapeHtml(p.topic)+'</div><h3>'+escapeHtml(p.title)+'</h3><p>'+escapeHtml(p.body)+'</p><button class="soft like-post" data-index="'+i+'">♡ '+p.likes+'</button></div>'}).join("")||'<p class="muted">Пока нет тем. Начни обсуждение первой ✨</p>'}
@@ -385,8 +542,8 @@ function moveMonth(n){cycleDate.setMonth(cycleDate.getMonth()+n);renderCalendar(
 function saveCycle(){periodStart=$("startDate").value;if(!periodStart){$("cycleMsg").textContent="Сначала выбери дату.";return}localStorage.setItem("luna_cycle_start",periodStart);$("cycleMsg").textContent="Отмечено начало месячных: "+new Date(periodStart+"T12:00:00").toLocaleDateString("ru-RU");renderCalendar()}
 function renderCalendar(){var y=cycleDate.getFullYear(),m=cycleDate.getMonth(),first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();$("month").textContent=new Date(y,m,1).toLocaleDateString("ru-RU",{month:"long",year:"numeric"});var out=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(function(x){return '<div class="muted">'+x+"</div>"}).join("");for(var i=0;i<(first+6)%7;i++)out+="<div></div>";var now=new Date();for(var d=1;d<=days;d++){var date=y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"),cl=[];if(periodStart&&date>=periodStart&&date<new Date(new Date(periodStart+"T12:00:00").getTime()+5*86400000).toISOString().slice(0,10))cl.push("period");if(d===now.getDate()&&m===now.getMonth()&&y===now.getFullYear())cl.push("today");out+='<div class="'+cl.join(" ")+'">'+d+"</div>"}$("calendar").innerHTML=out}
 document.querySelectorAll("[data-page]").forEach(function(el){el.addEventListener("click",function(){page(el.dataset.page)})});
-$("modeSignup").addEventListener("click",function(){setMode("signup")});$("modeLogin").addEventListener("click",function(){setMode("login")});$("authForm").addEventListener("submit",submitAuth);$("resetPassword").addEventListener("click",resetPassword);$("saveProfile").addEventListener("click",saveProfile);$("signOut").addEventListener("click",signOut);$("searchFriend").addEventListener("click",searchFriend);$("sendMessage").addEventListener("click",sendMessage);$("friendSearch").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();searchFriend()}});$("authEmail").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("authPassword").focus()}});$("publishPost").addEventListener("click",publishPost);$("drawCard").addEventListener("click",drawCard);$("saveCycle").addEventListener("click",saveCycle);$("prevMonth").addEventListener("click",function(){moveMonth(-1)});$("nextMonth").addEventListener("click",function(){moveMonth(1)});$("feedPet").addEventListener("click",function(){petAction("food")});$("playPet").addEventListener("click",function(){petAction("play")});$("sleepPet").addEventListener("click",function(){petAction("sleep")});
-document.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;if(b.classList.contains("add-friend"))sendRequest(b.dataset.uid,b.dataset.nick,b.dataset.nickLower);if(b.classList.contains("accept-request"))acceptRequest(b.dataset.id,true);if(b.classList.contains("decline-request"))acceptRequest(b.dataset.id,false);if(b.classList.contains("open-chat"))openChat(b.dataset.uid,b.dataset.nick);if(b.classList.contains("like-post")){var p=posts[Number(b.dataset.index)];if(p){p.likes++;renderPosts()}}});
+$("modeSignup").addEventListener("click",function(){setMode("signup")});$("modeLogin").addEventListener("click",function(){setMode("login")});$("authForm").addEventListener("submit",submitAuth);$("resetPassword").addEventListener("click",resetPassword);$("saveProfile").addEventListener("click",saveProfile);$("signOut").addEventListener("click",signOut);$("searchFriend").addEventListener("click",searchFriend);$("chatComposer").addEventListener("submit",function(e){e.preventDefault();sendMessage()});$("chatInput").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("chatComposer").requestSubmit()}});$("friendSearch").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();searchFriend()}});$("authEmail").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("authPassword").focus()}});$("publishPost").addEventListener("click",publishPost);$("drawCard").addEventListener("click",drawCard);$("saveCycle").addEventListener("click",saveCycle);$("prevMonth").addEventListener("click",function(){moveMonth(-1)});$("nextMonth").addEventListener("click",function(){moveMonth(1)});$("feedPet").addEventListener("click",function(){petAction("food")});$("playPet").addEventListener("click",function(){petAction("play")});$("sleepPet").addEventListener("click",function(){petAction("sleep")});
+document.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;if(b.classList.contains("add-friend"))sendRequest(b.dataset.uid,b.dataset.nick,b.dataset.nickLower);if(b.classList.contains("accept-request"))acceptRequest(b.dataset.id,true);if(b.classList.contains("decline-request"))acceptRequest(b.dataset.id,false);if(b.classList.contains("open-chat")||b.classList.contains("chat-contact"))openChat(b.dataset.uid,b.dataset.nick);if(b.classList.contains("sticker-button"))sendSticker(b.dataset.stickerUrl);if(b.classList.contains("like-post")){var p=posts[Number(b.dataset.index)];if(p){p.likes++;renderPosts()}}});
 try{periodStart=localStorage.getItem("luna_cycle_start")||"";$("startDate").value=periodStart}catch(e){}renderCalendar();renderPosts();setMode("signup");init();
 })();
 </script>
