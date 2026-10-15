@@ -37,6 +37,7 @@ function errorMessage(error, operation = "read") {
   if (code.includes("already-exists") || code.includes("nickname-taken")) return "Этот никнейм уже занят. Выбери другой.";
   if (code.includes("not-found")) return "Запись не найдена. Обнови страницу и повтори действие.";
   if (code.includes("unauthenticated")) return "Сессия завершилась. Войди в аккаунт ещё раз.";
+  if (code.includes("failed-precondition") && /index/i.test(error?.message || "")) return "Для этого запроса не хватает индекса Firestore. Попроси администратора создать предложенный индекс в Firebase Console.";
   if (code.includes("failed-precondition")) return "База пока не готова для этого действия. Обнови страницу чуть позже.";
   if (code.includes("auth/invalid-credential") || code.includes("auth/wrong-password") || code.includes("auth/user-not-found")) return "Не удалось войти: проверь почту и пароль.";
   if (code.includes("auth/email-already-in-use")) return "Аккаунт с этой почтой уже существует. Попробуй войти.";
@@ -401,7 +402,10 @@ document.addEventListener("click", (event) => {
 const pad2 = (n) => String(n).padStart(2, "0");
 function dateKey(date) { return date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate()); }
 function loadPeriod() {
-  try { state.period = localStorage.getItem("luna_period_v2") || ""; } catch (_) { state.period = ""; }
+  try {
+    state.period = localStorage.getItem("luna_period_v2") || localStorage.getItem("luna_cycle_start") || "";
+    if (state.period) localStorage.setItem("luna_period_v2", state.period);
+  } catch (_) { state.period = ""; }
   $("periodDate").value = state.period;
   if (state.period) feedback("periodMessage", "Сохранено: " + new Date(state.period + "T12:00:00").toLocaleDateString("ru-RU"));
   renderCalendar();
@@ -413,8 +417,8 @@ $("savePeriod").addEventListener("click", () => {
   feedback("periodMessage", "Дата сохранена только в этом браузере.", "success");
   renderCalendar();
 });
-$("prevMonth").addEventListener("click", () => { state.month.setMonth(state.month.getMonth() - 1); renderCalendar(); });
-$("nextMonth").addEventListener("click", () => { state.month.setMonth(state.month.getMonth() + 1); renderCalendar(); });
+$("prevMonth").addEventListener("click", () => { state.month = new Date(state.month.getFullYear(), state.month.getMonth() - 1, 1); renderCalendar(); });
+$("nextMonth").addEventListener("click", () => { state.month = new Date(state.month.getFullYear(), state.month.getMonth() + 1, 1); renderCalendar(); });
 function renderCalendar() {
   const year = state.month.getFullYear(), month = state.month.getMonth();
   $("calendarMonth").textContent = new Date(year, month, 1).toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
