@@ -195,8 +195,9 @@ async function searchFriend(){
     if(!targetUid){result.textContent="У этого профиля пока не завершена настройка поиска. Попроси владелицу сохранить профиль.";return}
     if(targetUid===user.uid){result.textContent="Это твой никнейм 🙂";return}
     var friendId=friendIdFor(user.uid,targetUid);
-    var friend=await timeout(db.collection("lunaFriends").doc(friendId).get(),10000);
-    var action=friend.exists?'<button type="button" class="soft" disabled>Вы уже подруги 💗</button>':'<button type="button" class="btn add-friend" data-uid="'+escapeHtml(targetUid)+'" data-nick="'+escapeHtml(x.nick||raw)+'" data-nick-lower="'+escapeHtml(nickLower)+'">＋ Добавить в друзья</button>';
+    var friendships=await timeout(db.collection("lunaFriends").where("members","array-contains",user.uid).limit(100).get(),10000);
+    var isFriend=friendships.docs.some(function(d){var members=d.data().members||[];return d.id===friendId&&members.indexOf(user.uid)>=0&&members.indexOf(targetUid)>=0});
+    var action=isFriend?'<button type="button" class="soft" disabled>Вы уже подруги 💗</button>':'<button type="button" class="btn add-friend" data-uid="'+escapeHtml(targetUid)+'" data-nick="'+escapeHtml(x.nick||raw)+'" data-nick-lower="'+escapeHtml(nickLower)+'">＋ Добавить в друзья</button>';
     result.innerHTML='<div class="post"><b>'+escapeHtml(x.nick||raw)+'</b><p class="muted">Участница LUNA</p>'+action+'</div>';
   }catch(e){result.className="status error";result.textContent="Не удалось найти никнейм: "+socialError(e)}
   finally{button.disabled=false;button.textContent="Найти"}
