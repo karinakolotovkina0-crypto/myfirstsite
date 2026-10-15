@@ -277,11 +277,25 @@ service cloud.firestore {
         allow get, list: if isChatMember(chatId);
         allow create: if isChatMember(chatId)
           && request.resource.data.keys().hasAll(['fromUid', 'text', 'createdAt'])
-          && request.resource.data.keys().hasOnly(['fromUid', 'text', 'createdAt'])
+          && request.resource.data.keys().hasOnly(['fromUid', 'text', 'createdAt', 'image'])
           && request.resource.data.fromUid == request.auth.uid
-          && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 2000
+          && (
+            (
+              !request.resource.data.keys().hasAny(['image'])
+              && request.resource.data.text is string
+              && request.resource.data.text.size() > 0
+              && request.resource.data.text.size() <= 2000
+            )
+            ||
+            (
+              request.resource.data.keys().hasAny(['image'])
+              && request.resource.data.image is string
+              && request.resource.data.image.size() > 0
+              && request.resource.data.image.size() <= 700000
+              && request.resource.data.image.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$')
+              && request.resource.data.text == ''
+            )
+          )
           && request.resource.data.createdAt is timestamp
           && request.resource.data.createdAt == request.time;
         allow update, delete: if false;
