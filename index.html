@@ -518,10 +518,10 @@ function isStickerMessage(text){return String(text||"").indexOf("[[luna-sticker]
 function validStickerUrl(value){
   try{var url=new URL(String(value||""));return url.protocol==="https:"&&(/(^|\.)tenor\.com$/i.test(url.hostname)||/(^|\.)giphy\.com$/i.test(url.hostname))?url.href:""}catch(ignore){return ""}
 }
-function safeChatImage(value){var source=String(value||"");return source.length<=700000&&/^data:image\\/jpeg;base64,[A-Za-z0-9+/]+=*$/i.test(source)?source:""}
+function safeChatImage(value){var source=String(value||"");return source.length<=700000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/i.test(source)?source:""}
 function renderMessageBody(text){
   var value=String(text||"");
-  if(isStickerMessage(value)){var url=validStickerUrl(value.slice("[[luna-sticker]]".length));if(url)return '<img class="chat-sticker" src="'+escapeHtml(url)+'" alt="GIF-стикер" loading="lazy">'}
+  if(isStickerMessage(value)){var url=validStickerUrl(value.slice("[[luna-sticker]]".length));if(url)return '<img class="chat-sticker" src="'+escapeHtml(url)+'" alt="PNG-стикер" loading="lazy">'}
   return escapeHtml(value)
 }
 function renderChatList(){
@@ -566,7 +566,7 @@ async function sendMessage(customText){
 }
 function compressChatPhoto(file){
   return new Promise(function(resolve,reject){
-    if(!file||!/^image\\/(jpeg|png|webp)$/i.test(file.type)){reject(new Error("Выбери фото в формате JPG, PNG или WebP."));return}
+    if(!file||!/^image\/(jpeg|png|webp)$/i.test(file.type)){reject(new Error("Выбери фото в формате JPG, PNG или WebP."));return}
     if(file.size>12*1024*1024){reject(new Error("Исходное фото должно быть меньше 12 МБ."));return}
     var reader=new FileReader();
     reader.onerror=function(){reject(new Error("Не удалось прочитать фото."))};
