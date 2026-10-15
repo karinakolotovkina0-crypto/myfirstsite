@@ -201,6 +201,38 @@ a:focus-visible{outline:3px solid #000;outline-offset:3px}
  .nav{justify-content:flex-start;overflow-x:auto}
  .nav button{min-width:52px;font-size:9px}
 }
+
+/* Telegram-like scrolling chat and compact PNG stickers */
+.chat-layout{height:calc(100dvh - 270px);min-height:360px;max-height:900px;overflow:hidden}
+.chat-sidebar{height:100%;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.chat-stage{height:100%;min-height:0;overflow:hidden}
+.chat-panel{height:100%;min-height:0;overflow:hidden}
+.chat-messages{min-height:0;height:auto;flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:16px 8px}
+.message-line{flex:0 0 auto}
+.visual-bubble{padding:4px;background:transparent;border-color:transparent}
+.visual-bubble.mine,.visual-bubble.theirs{background:transparent;color:#000;border-color:transparent}
+.visual-bubble time{display:block;margin:3px 4px 0;color:#45443f}
+.chat-sticker{display:block;width:92px;height:92px;max-height:92px;object-fit:contain;border-radius:0;background:transparent}
+.sticker-button{width:60px;height:60px;flex-basis:60px;border-radius:8px;padding:2px}
+.sticker-button img{width:54px;height:54px;object-fit:contain;background:transparent}
+.chat-photo{display:block;width:min(260px,58vw);max-height:300px;object-fit:contain;border-radius:8px}
+.chat-composer{flex:0 0 auto;align-items:flex-end;gap:8px;padding-top:8px;border-top:1px solid #8c8a82}
+.chat-composer .field{min-height:46px;max-height:140px}
+.photo-button{width:42px;height:42px;flex:0 0 42px;padding:0;border:1px solid #595855;background:#fff;text-decoration:none;font-size:24px;line-height:1}
+.chat-composer .btn{min-height:44px}
+.sticker-tray{max-height:90px}
+@media(max-width:680px){
+ .chat-layout{height:calc(100dvh - 285px);min-height:340px;grid-template-rows:96px minmax(0,1fr);gap:8px}
+ .chat-sidebar{height:96px;overflow:hidden}
+ .chat-stage{height:100%;min-height:0}
+ .chat-panel{height:100%;min-height:0}
+ .chat-messages{min-height:0;padding:10px 2px}
+ .chat-sticker{width:76px;height:76px;max-height:76px}
+ .sticker-tray{max-height:82px}
+ .chat-photo{width:min(220px,64vw);max-height:220px}
+ .chat-composer .field{font-size:16px}
+ .chat-composer .btn{padding:9px 10px}
+}
 </style>
 </head>
 <body>
@@ -220,13 +252,13 @@ a:focus-visible{outline:3px solid #000;outline-offset:3px}
 <div id="chatPanel" class="chat-panel hidden">
 <header class="chat-header"><div id="chatAvatarSlot" class="chat-header-avatar"></div><div class="chat-header-name"><h2 id="chatWith">Чат</h2><span class="muted">Подруга в LUNA</span></div><button class="soft chat-back" type="button" data-page="social">К подругам</button></header>
 <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
-<details class="sticker-picker"><summary>Открыть GIF-стикеры</summary><div class="sticker-tray">
-<button type="button" class="sticker-button" data-sticker-url="https://media1.tenor.com/m/NxGCW4rFlGEAAAAd/happy-cat-happy-cat-face-meme.gif" aria-label="Отправить весёлого кота"><img src="https://media1.tenor.com/m/NxGCW4rFlGEAAAAd/happy-cat-happy-cat-face-meme.gif" alt="Весёлый кот" loading="lazy"></button>
-<button type="button" class="sticker-button" data-sticker-url="https://media1.tenor.com/m/uPh3If9z1x4AAAAd/boy-why-you-so-seal-cat.gif" aria-label="Отправить удивлённого кота"><img src="https://media1.tenor.com/m/uPh3If9z1x4AAAAd/boy-why-you-so-seal-cat.gif" alt="Удивлённый кот" loading="lazy"></button>
-<button type="button" class="sticker-button" data-sticker-url="https://c.tenor.com/xJ_mJ01nxmUAAAAC/yay-yes-yes-yes.gif" aria-label="Отправить GIF с радостью"><img src="https://c.tenor.com/xJ_mJ01nxmUAAAAC/yay-yes-yes-yes.gif" alt="Ура" loading="lazy"></button>
-<button type="button" class="sticker-button" data-sticker-url="https://media1.tenor.com/m/kCsUeB9U3U4AAAAC/excited-im-so-excited.gif" aria-label="Отправить восторженный GIF"><img src="https://media1.tenor.com/m/kCsUeB9U3U4AAAAC/excited-im-so-excited.gif" alt="Восторг" loading="lazy"></button>
+<details class="sticker-picker"><summary>Стикеры PNG</summary><div class="sticker-tray">
+<button type="button" class="sticker-button" data-sticker-url="https://media.tenor.com/iLaVz101FtgAAAAe/yay-mochi.png" aria-label="Отправить весёлый PNG-стикер"><img src="https://media.tenor.com/iLaVz101FtgAAAAe/yay-mochi.png" alt="Весёлый PNG-стикер" loading="lazy"></button>
+<button type="button" class="sticker-button" data-sticker-url="https://media.tenor.com/M-KM9l8LedAAAAAe/cat-pick-nose.png" aria-label="Отправить PNG-стикер с приветом"><img src="https://media.tenor.com/M-KM9l8LedAAAAAe/cat-pick-nose.png" alt="PNG-стикер с приветом" loading="lazy"></button>
+<button type="button" class="sticker-button" data-sticker-url="https://media.tenor.com/OxlFHEpkahYAAAAe/thumbs-up.png" aria-label="Отправить PNG-стикер одобрения"><img src="https://media.tenor.com/OxlFHEpkahYAAAAe/thumbs-up.png" alt="PNG-стикер одобрения" loading="lazy"></button>
+<button type="button" class="sticker-button" data-sticker-url="https://media.tenor.com/_F868yNBTPEAAAAe/kiss-kissing.png" aria-label="Отправить PNG-стикер с поцелуем"><img src="https://media.tenor.com/_F868yNBTPEAAAAe/kiss-kissing.png" alt="PNG-стикер с поцелуем" loading="lazy"></button>
 </div><small class="sticker-credit">Анимации загружаются с <a href="https://tenor.com/" target="_blank" rel="noopener noreferrer">Tenor</a>.</small></details>
-<form id="chatComposer" class="chat-composer"><textarea class="field" id="chatInput" rows="2" maxlength="2000" placeholder="Напиши сообщение…" aria-label="Текст сообщения"></textarea><button class="btn" id="sendMessage" type="submit">Отправить</button></form>
+<form id="chatComposer" class="chat-composer"><button type="button" id="choosePhoto" class="soft photo-button" aria-label="Прикрепить фото">＋</button><input id="chatPhotoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><textarea class="field" id="chatInput" rows="2" maxlength="2000" placeholder="Напиши сообщение…" aria-label="Текст сообщения"></textarea><button class="btn" id="sendMessage" type="submit">Отправить</button></form>
 </div></div></div>
 </section>
 <section class="page" id="community"><h1>Девичник 💌</h1><p class="muted">Небольшие обсуждения для начала. Пока публикации хранятся только в этой открытой вкладке и не видны другим пользователям.</p><input class="field" id="postTitle" maxlength="100" placeholder="Название темы"><select class="field" id="postTopic"><option>Отношения</option><option>Красота</option><option>Жизнь</option><option>Учёба и работа</option><option>Другое</option></select><textarea class="field" id="postBody" rows="3" maxlength="2000" placeholder="Расскажи подробнее…"></textarea><button class="btn" id="publishPost">Опубликовать</button><div id="posts"></div></section>
@@ -486,6 +518,7 @@ function isStickerMessage(text){return String(text||"").indexOf("[[luna-sticker]
 function validStickerUrl(value){
   try{var url=new URL(String(value||""));return url.protocol==="https:"&&(/(^|\.)tenor\.com$/i.test(url.hostname)||/(^|\.)giphy\.com$/i.test(url.hostname))?url.href:""}catch(ignore){return ""}
 }
+function safeChatImage(value){var source=String(value||"");return source.length<=700000&&/^data:image\\/jpeg;base64,[A-Za-z0-9+/]+=*$/i.test(source)?source:""}
 function renderMessageBody(text){
   var value=String(text||"");
   if(isStickerMessage(value)){var url=validStickerUrl(value.slice("[[luna-sticker]]".length));if(url)return '<img class="chat-sticker" src="'+escapeHtml(url)+'" alt="GIF-стикер" loading="lazy">'}
@@ -516,7 +549,7 @@ async function openChat(uid,nick){
     chatUnsub=db.collection("lunaChats").doc(chatId).collection("messages").orderBy("createdAt","asc").limit(100).onSnapshot(function(snap){
       $("chatMessages").innerHTML=snap.docs.map(function(d){
         var x=d.data(),mine=x.fromUid===user.uid,time=x.createdAt&&x.createdAt.toDate?x.createdAt.toDate().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"",messagePhoto=mine?(photoData||user.photoURL||""):contact.photo,messageName=mine?($("nick").value||user.displayName||"Ты"):contact.nick;
-        return '<div class="message-line '+(mine?"mine":"theirs")+'">'+avatarMarkup(messagePhoto,messageName,"message-avatar")+'<div class="bubble '+(mine?"mine":"theirs")+'">'+renderMessageBody(x.text)+'<time>'+escapeHtml(time)+'</time></div></div>'
+        var imageMarkup=safeChatImage(x.image),sticker=isStickerMessage(x.text);return '<div class="message-line '+(mine?"mine":"theirs")+'">'+avatarMarkup(messagePhoto,messageName,"message-avatar")+'<div class="bubble '+(mine?"mine":"theirs")+(sticker||imageMarkup?" visual-bubble":"")+'">'+(imageMarkup?'<img class="chat-photo" src="'+escapeHtml(imageMarkup)+'" alt="Фото в чате" loading="lazy">':renderMessageBody(x.text))+'<time>'+escapeHtml(time)+'</time></div></div>'
       }).join("")||'<p class="muted chat-no-messages">Напиши первое сообщение ✨</p>';
       $("chatMessages").scrollTop=$("chatMessages").scrollHeight
     },function(e){$("chatMessages").textContent=socialError(e)})
@@ -531,6 +564,45 @@ async function sendMessage(customText){
   catch(e){$("chatMessages").textContent=socialError(e)}
   finally{button.disabled=false}
 }
+function compressChatPhoto(file){
+  return new Promise(function(resolve,reject){
+    if(!file||!/^image\\/(jpeg|png|webp)$/i.test(file.type)){reject(new Error("Выбери фото в формате JPG, PNG или WebP."));return}
+    if(file.size>12*1024*1024){reject(new Error("Исходное фото должно быть меньше 12 МБ."));return}
+    var reader=new FileReader();
+    reader.onerror=function(){reject(new Error("Не удалось прочитать фото."))};
+    reader.onload=function(){
+      var image=new Image();
+      image.onerror=function(){reject(new Error("Не удалось открыть фото."))};
+      image.onload=function(){
+        var canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");
+        if(!ctx){reject(new Error("Не удалось обработать фото на этом устройстве."));return}
+        var dimensions=[640,512,384],qualities=[0.72,0.58,0.44];
+        for(var i=0;i<dimensions.length;i++){
+          var scale=Math.min(1,dimensions[i]/Math.max(image.width,image.height));
+          canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));
+          ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
+          for(var j=0;j<qualities.length;j++){var data=canvas.toDataURL("image/jpeg",qualities[j]);if(data.length<=700000){resolve(data);return}}
+        }
+        reject(new Error("Не удалось уменьшить фото до безопасного размера. Выбери другое изображение."))
+      };
+      image.src=String(reader.result||"")
+    };
+    reader.readAsDataURL(file)
+  })
+}
+async function sendPhoto(file){
+  if(!user||!db||!activeChatUid)return;
+  var button=$("choosePhoto");
+  button.disabled=true;
+  try{
+    var image=await compressChatPhoto(file),chatId=friendIdFor(user.uid,activeChatUid);
+    await db.collection("lunaChats").doc(chatId).collection("messages").add({fromUid:user.uid,text:"",image:image,createdAt:serverTimestamp()});
+    $("chatPhotoInput").value=""
+  }catch(e){
+    var message=e&&e.code==="permission-denied"?"Фото пока не разрешены текущими правилами Firestore. Опубликуй обновлённые firestore.rules из репозитория.":socialError(e);
+    $("chatMessages").insertAdjacentHTML("beforeend",'<p class="status error">'+escapeHtml(message)+'</p>')
+  }finally{button.disabled=false}
+}
 function sendSticker(url){var safe=validStickerUrl(url);if(!safe){status("Этот стикер недоступен.","error");return}sendMessage("[[luna-sticker]]"+safe)}
 
 var tarot=[["Звезда","Надежда и восстановление. Что помогает тебе снова видеть возможности?","✧"],["Императрица","Забота, творчество и связь со своими потребностями. Где тебе нужно больше нежности?","♛"],["Луна","Неопределённость и внутренний мир. Какие чувства стоит понять?","☾"],["Сила","Мягкая смелость и терпение. Как поддержать себя без давления?","♌"],["Солнце","Ясность, радость и простые удовольствия. Что сегодня сделает день светлее?","☼"],["Отшельник","Пауза и честный разговор с собой. Какой ответ ты уже почти знаешь?","♧"]];
@@ -542,7 +614,7 @@ function moveMonth(n){cycleDate.setMonth(cycleDate.getMonth()+n);renderCalendar(
 function saveCycle(){periodStart=$("startDate").value;if(!periodStart){$("cycleMsg").textContent="Сначала выбери дату.";return}localStorage.setItem("luna_cycle_start",periodStart);$("cycleMsg").textContent="Отмечено начало месячных: "+new Date(periodStart+"T12:00:00").toLocaleDateString("ru-RU");renderCalendar()}
 function renderCalendar(){var y=cycleDate.getFullYear(),m=cycleDate.getMonth(),first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();$("month").textContent=new Date(y,m,1).toLocaleDateString("ru-RU",{month:"long",year:"numeric"});var out=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(function(x){return '<div class="muted">'+x+"</div>"}).join("");for(var i=0;i<(first+6)%7;i++)out+="<div></div>";var now=new Date();for(var d=1;d<=days;d++){var date=y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"),cl=[];if(periodStart&&date>=periodStart&&date<new Date(new Date(periodStart+"T12:00:00").getTime()+5*86400000).toISOString().slice(0,10))cl.push("period");if(d===now.getDate()&&m===now.getMonth()&&y===now.getFullYear())cl.push("today");out+='<div class="'+cl.join(" ")+'">'+d+"</div>"}$("calendar").innerHTML=out}
 document.querySelectorAll("[data-page]").forEach(function(el){el.addEventListener("click",function(){page(el.dataset.page)})});
-$("modeSignup").addEventListener("click",function(){setMode("signup")});$("modeLogin").addEventListener("click",function(){setMode("login")});$("authForm").addEventListener("submit",submitAuth);$("resetPassword").addEventListener("click",resetPassword);$("saveProfile").addEventListener("click",saveProfile);$("signOut").addEventListener("click",signOut);$("searchFriend").addEventListener("click",searchFriend);$("chatComposer").addEventListener("submit",function(e){e.preventDefault();sendMessage()});$("chatInput").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("chatComposer").requestSubmit()}});$("friendSearch").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();searchFriend()}});$("authEmail").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("authPassword").focus()}});$("publishPost").addEventListener("click",publishPost);$("drawCard").addEventListener("click",drawCard);$("saveCycle").addEventListener("click",saveCycle);$("prevMonth").addEventListener("click",function(){moveMonth(-1)});$("nextMonth").addEventListener("click",function(){moveMonth(1)});$("feedPet").addEventListener("click",function(){petAction("food")});$("playPet").addEventListener("click",function(){petAction("play")});$("sleepPet").addEventListener("click",function(){petAction("sleep")});
+$("modeSignup").addEventListener("click",function(){setMode("signup")});$("modeLogin").addEventListener("click",function(){setMode("login")});$("authForm").addEventListener("submit",submitAuth);$("resetPassword").addEventListener("click",resetPassword);$("saveProfile").addEventListener("click",saveProfile);$("signOut").addEventListener("click",signOut);$("searchFriend").addEventListener("click",searchFriend);$("chatComposer").addEventListener("submit",function(e){e.preventDefault();sendMessage()});$("choosePhoto").addEventListener("click",function(){$("chatPhotoInput").click()});$("chatPhotoInput").addEventListener("change",function(e){var file=e.target.files&&e.target.files[0];if(file)sendPhoto(file)});$("chatInput").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("chatComposer").requestSubmit()}});$("friendSearch").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();searchFriend()}});$("authEmail").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("authPassword").focus()}});$("publishPost").addEventListener("click",publishPost);$("drawCard").addEventListener("click",drawCard);$("saveCycle").addEventListener("click",saveCycle);$("prevMonth").addEventListener("click",function(){moveMonth(-1)});$("nextMonth").addEventListener("click",function(){moveMonth(1)});$("feedPet").addEventListener("click",function(){petAction("food")});$("playPet").addEventListener("click",function(){petAction("play")});$("sleepPet").addEventListener("click",function(){petAction("sleep")});
 document.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;if(b.classList.contains("add-friend"))sendRequest(b.dataset.uid,b.dataset.nick,b.dataset.nickLower);if(b.classList.contains("accept-request"))acceptRequest(b.dataset.id,true);if(b.classList.contains("decline-request"))acceptRequest(b.dataset.id,false);if(b.classList.contains("open-chat")||b.classList.contains("chat-contact"))openChat(b.dataset.uid,b.dataset.nick);if(b.classList.contains("sticker-button"))sendSticker(b.dataset.stickerUrl);if(b.classList.contains("like-post")){var p=posts[Number(b.dataset.index)];if(p){p.likes++;renderPosts()}}});
 try{periodStart=localStorage.getItem("luna_cycle_start")||"";$("startDate").value=periodStart}catch(e){}renderCalendar();renderPosts();setMode("signup");init();
 })();
