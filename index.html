@@ -26,10 +26,13 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{
 <section class="page" id="games"><h1>Маленькие радости 🧸</h1><div class="petbox"><div class="muted">ТВОЙ ВИРТУАЛЬНЫЙ ДРУГ</div><div class="pet">🐱</div><h2>Плюша</h2><p id="petMood" class="muted">Плюша рада тебя видеть!</p><div class="stats"><div>🍓 Сытость<b id="food">70</b></div><div>💗 Счастье<b id="happy">70</b></div><div>⚡ Энергия<b id="energy">70</b></div></div><button class="soft" id="feedPet">🍓 Покормить</button><button class="soft" id="playPet">🎀 Играть</button><button class="soft" id="sleepPet">🌙 Спать</button></div><h2 style="margin-top:22px">Игры из GirlsGoGames 🎮</h2><p class="muted">Игры открываются на сайте издателя. Старые Flash-игры могут не работать на современных устройствах.</p><div class="tiles"><a class="tile" href="https://www.girlsgogames.ru/igra/dark-chocolate-blackberry-cheesecake-saras-cooking-class" target="_blank" rel="noopener noreferrer"><span class="emoji">🍰</span><strong>Кухня Сары: чизкейк</strong><small>Готовим десерт ↗</small></a><a class="tile" href="https://www.girlsgogames.ru/" target="_blank" rel="noopener noreferrer"><span class="emoji">👗</span><strong>Одевалки</strong><small>Каталог игр ↗</small></a><a class="tile" href="https://www.girlsgogames.ru/" target="_blank" rel="noopener noreferrer"><span class="emoji">💄</span><strong>Макияж и красота</strong><small>Каталог игр ↗</small></a></div></section>
 <nav class="nav"><button class="active" data-page="home"><span>⌂</span>Главная</button><button data-page="tarot"><span>✧</span>Таро</button><button data-page="community"><span>♡</span>Общение</button><button data-page="cycle"><span>🌸</span>Цикл</button><button data-page="games"><span>♧</span>Игры</button><button data-page="social"><span>💬</span>Друзья</button></nav>
 </main>
-<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
 <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import {
+  getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged,
+  createUserWithEmailAndPassword, updateProfile, sendEmailVerification,
+  signInWithEmailAndPassword, sendPasswordResetEmail, signOut as firebaseSignOut
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   initializeFirestore, collection as fsCollection, doc as fsDoc,
   query as fsQuery, where as fsWhere, limit as fsLimit, orderBy as fsOrderBy,
@@ -41,7 +44,7 @@ import {
 (function(){
 "use strict";
 var firebaseConfig={apiKey:"AIzaSyDvb-FYk1-osvvQtFwuv8kPPRBgBJJU9EQ",authDomain:"luna-a9fa5.firebaseapp.com",projectId:"luna-a9fa5",storageBucket:"luna-a9fa5.firebasestorage.app",messagingSenderId:"168033013342",appId:"1:168033013342:web:d2d948a3bd93f5cbd6eecf",measurementId:"G-06FRESS07P"};
-var auth=null,db=null,user=null,mode="signup",activeChatUid=null,chatUnsub=null,photoData="",removePhoto=false,posts=[],cycleDate=new Date(),periodStart="",pet={food:70,happy:70,energy:70};
+var firebaseApp=null,auth=null,db=null,user=null,mode="signup",activeChatUid=null,chatUnsub=null,photoData="",removePhoto=false,posts=[],cycleDate=new Date(),periodStart="",pet={food:70,happy:70,energy:70};
 function $(id){return document.getElementById(id)}
 function status(message,type){var el=$("authStatus");if(el){el.textContent=message;el.className="status"+(type?" "+type:"");}}
 function socialStatus(id,message){var el=$(id);if(el)el.textContent=message;}
@@ -76,7 +79,7 @@ function showUser(u){
     status("Войди или создай аккаунт, чтобы начать.")
   }
 }
-function init(){if(!window.firebase){status("Не загрузилась библиотека Firebase. Проверь интернет, отключи блокировщик контента и обнови страницу.","error");return}try{if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);auth=firebase.auth();db=makeFirestoreFacade(initializeFirestore(firebase.app(),{experimentalForceLongPolling:true},"default"));auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(){});auth.onAuthStateChanged(showUser,function(e){status(errorText(e),"error")});status("Firebase подключён. Можно создать аккаунт или войти.","success")}catch(e){status("Не удалось запустить Firebase: "+e.message,"error")}}
+function init(){try{firebaseApp=initializeApp(firebaseConfig);auth=getAuth(firebaseApp);db=makeFirestoreFacade(initializeFirestore(firebaseApp,{experimentalForceLongPolling:true},"default"));setPersistence(auth,browserLocalPersistence).catch(function(){});onAuthStateChanged(auth,showUser,function(e){status(errorText(e),"error")});status("Firebase подключён. Можно создать аккаунт или войти.","success")}catch(e){status("Не удалось запустить Firebase: "+e.message,"error")}}
 async function submitAuth(event){
   if(event)event.preventDefault();
   var btn=$("authSubmit");
@@ -88,19 +91,19 @@ async function submitAuth(event){
   btn.disabled=true;btn.textContent=mode==="signup"?"Создаём аккаунт…":"Входим…";status("Отправляем запрос Firebase…");
   try{
     if(mode==="signup"){
-      var credential=await timeout(auth.createUserWithEmailAndPassword(email,password),12000);
-      if(nick)try{await timeout(credential.user.updateProfile({displayName:nick}),8000)}catch(ignore){}
+      var credential=await timeout(createUserWithEmailAndPassword(auth,email,password),12000);
+      if(nick)try{await timeout(updateProfile(credential.user,{displayName:nick}),8000)}catch(ignore){}
       try{localStorage.setItem("luna_profile_"+credential.user.uid,JSON.stringify({nick:nick}))}catch(ignore){}var ready=await ensureProfileDoc(credential.user,nick);
-      try{await timeout(credential.user.sendEmailVerification(),8000)}catch(ignore){}
+      try{await timeout(sendEmailVerification(credential.user),8000)}catch(ignore){}
       status(ready?"Аккаунт создан, профиль готов — можно искать подруг 💗":"Аккаунт создан. Заверши настройку никнейма в профиле, чтобы подруги могли тебя найти.","success")
     }else{
-      await timeout(auth.signInWithEmailAndPassword(email,password),12000);
+      await timeout(signInWithEmailAndPassword(auth,email,password),12000);
       status("Ты успешно вошла в LUNA 💗","success")
     }
   }catch(e){status(errorText(e),"error")}
   finally{btn.disabled=false;btn.textContent=mode==="signup"?"Создать аккаунт":"Войти"}
 }
-async function resetPassword(){if(!auth){status("Firebase ещё не подключился.","error");return}var email=$("authEmail").value.trim();if(!email){status("Сначала введи электронную почту.","error");return}try{await timeout(auth.sendPasswordResetEmail(email),12000);status("Если аккаунт с этой почтой существует, письмо для сброса пароля отправлено.","success")}catch(e){status(errorText(e),"error")}}
+async function resetPassword(){if(!auth){status("Firebase ещё не подключился.","error");return}var email=$("authEmail").value.trim();if(!email){status("Сначала введи электронную почту.","error");return}try{await timeout(sendPasswordResetEmail(auth,email),12000);status("Если аккаунт с этой почтой существует, письмо для сброса пароля отправлено.","success")}catch(e){status(errorText(e),"error")}}
 function localProfileKey(){return user?"luna_profile_"+user.uid:null}
 function loadProfile(){if(!user)return;var p={};try{p=JSON.parse(localStorage.getItem(localProfileKey())||"{}")}catch(e){}$("nick").value=user.displayName||p.nick||"";$("bio").value=p.bio||"";$("interests").value=p.interests||"";$("favorites").value=p.favorites||"";$("mood").value=p.mood||"";photoData=p.photo||user.photoURL||"";removePhoto=false;drawPhoto();if(db)profileRef(user.uid).get().then(function(snap){if(!snap.exists||!user)return;var remote=snap.data();if(remote.nick)$("nick").value=remote.nick;if(remote.bio)$("bio").value=remote.bio;if(remote.interests)$("interests").value=remote.interests;if(remote.favorites)$("favorites").value=remote.favorites;if(remote.mood)$("mood").value=remote.mood;if(remote.photo){photoData=remote.photo;drawPhoto()}try{localStorage.setItem(localProfileKey(),JSON.stringify({nick:remote.nick||$("nick").value,bio:remote.bio||$("bio").value,interests:remote.interests||$("interests").value,favorites:remote.favorites||$("favorites").value,mood:remote.mood||$("mood").value,photo:remote.photo||photoData||""}))}catch(e){}}).catch(function(e){status("Не удалось загрузить профиль из базы: "+errorText(e),"error")})}
 function drawPhoto(){var img=$("profilePhotoPreview");if(photoData){img.src=photoData;img.classList.remove("hidden")}else{img.removeAttribute("src");img.classList.add("hidden")}}
@@ -121,7 +124,7 @@ async function saveProfile(){
     await loadSocial()
   }catch(e){status("Не удалось сохранить профиль: "+errorText(e),"error")}
 }
-async function signOut(){if(auth)try{await auth.signOut();status("Ты вышла из аккаунта.")}catch(e){status(errorText(e),"error")}}
+async function signOut(){if(auth)try{await firebaseSignOut(auth);status("Ты вышла из аккаунта.")}catch(e){status(errorText(e),"error")}}
 function profileRef(uid){return db.collection("lunaProfiles").doc(uid)}
 function usernameRef(nickLower){return db.collection("lunaUsernames").doc(nickLower)}
 function friendIdFor(uidA,uidB){return [uidA,uidB].sort().join("~")}
