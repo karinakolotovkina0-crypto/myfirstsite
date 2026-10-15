@@ -13,8 +13,8 @@
 <nav class="nav"><button class="active" data-id="home" onclick="page('home')"><span>⌂</span>Главная</button><button data-id="tarot" onclick="page('tarot')"><span>✧</span>Таро</button><button data-id="community" onclick="page('community')"><span>♡</span>Общение</button><button data-id="cycle" onclick="page('cycle')"><span>🌸</span>Цикл</button><button data-id="games" onclick="page('games')"><span>♧</span>Игры</button></nav></main>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script>
-// Firebase project settings: add the web app config from Firebase Console > Project settings > Your apps.
-const firebaseConfig = { apiKey: "PASTE_API_KEY_HERE", authDomain: "luna-a9fa5.firebaseapp.com", projectId: "luna-a9fa5", appId: "PASTE_APP_ID_HERE" };
+// Firebase web app configuration for the LUNA project.
+const firebaseConfig = { apiKey: "AIzaSyDvb-FYk1-osvvQtFwuv8kPPRBgBJJU9EQ", authDomain: "luna-a9fa5.firebaseapp.com", projectId: "luna-a9fa5", storageBucket: "luna-a9fa5.firebasestorage.app", messagingSenderId: "168033013342", appId: "1:168033013342:web:d2d948a3bd93f5cbd6eecf", measurementId: "G-06FRESS07P" };
 let authMode = "signup", lunaAuth = null, currentUser = null;
 function setAuthMode(mode){authMode=mode;document.getElementById("authSubmit").textContent=mode==="signup"?"Создать аккаунт":"Войти";document.getElementById("authNick").style.display=mode==="signup"?"block":"none";document.getElementById("showSignup").style.opacity=mode==="signup"?"1":".6";document.getElementById("showLogin").style.opacity=mode==="login"?"1":".6";document.getElementById("authPassword").autocomplete=mode==="signup"?"new-password":"current-password";}
 function authNotice(message){document.getElementById("authMessage").textContent=message;}
