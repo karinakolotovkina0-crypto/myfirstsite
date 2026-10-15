@@ -4,84 +4,286 @@ service cloud.firestore {
     function signedIn() {
       return request.auth != null;
     }
-    function isSelf(uid) {
-      return signedIn() && request.auth.uid == uid;
+
+    function validNick(value) {
+      return value is string
+        && value.size() >= 2
+        && value.size() <= 40
+        && value.matches('^[^/]{2,40}$');
     }
-    function isFriendChat(chatId) {
+
+    function validUid(value) {
+      return value is string
+        && value.size() > 0
+        && value.size() <= 128
+        && value.matches('^[A-Za-z0-9_-]{1,128}$');
+    }
+
+    function pairId(uidA, uidB) {
+      return uidA < uidB ? uidA + '~' + uidB : uidB + '~' + uidA;
+    }
+
+    function pairPath(uidA, uidB) {
+      return /databases/$(database)/documents/lunaFriends/$(pairId(uidA, uidB));
+    }
+
+    function isFriend(uid) {
+      return signedIn()
+        && uid is string
+        && uid != request.auth.uid
+        && exists(pairPath(request.auth.uid, uid))
+        && request.auth.uid in get(pairPath(request.auth.uid, uid)).data.members
+        && uid in get(pairPath(request.auth.uid, uid)).data.members;
+    }
+
+    function isChatMember(chatId) {
       return signedIn()
         && exists(/databases/$(database)/documents/lunaFriends/$(chatId))
-        && request.auth.uid in get(/databases/$(database)/documents/lunaFriends/$(chatId)).data.members;
+        && request.auth.uid in get(
+          /databases/$(database)/documents/lunaFriends/$(chatId)
+        ).data.members;
+    }
+
+    function validUsername(nickLower) {
+      let d = request.resource.data;
+      return d.keys().hasAll(['uid', 'nick', 'nickLower', 'updatedAt'])
+        && d.keys().hasOnly(['uid', 'nick', 'nickLower', 'updatedAt'])
+        && validUid(d.uid)
+        && d.uid == request.auth.uid
+        && d.nick is string
+        && d.nick.size() >= 2
+        && d.nick.size() <= 40
+        && validNick(nickLower)
+        && d.nickLower == nickLower
+        && d.updatedAt is timestamp
+        && d.updatedAt == request.time
+        && existsAfter(/databases/$(database)/documents/lunaProfiles/$(d.uid))
+        && getAfter(/databases/$(database)/documents/lunaProfiles/$(d.uid)).data.nick == d.nick
+        && getAfter(/databases/$(database)/documents/lunaProfiles/$(d.uid)).data.nickLower == d.nickLower;
+    }
+
+    function validProfile(uid) {
+      let d = request.resource.data;
+      let usernamePath = /databases/$(database)/documents/lunaUsernames/$(d.nickLower);
+      return d.keys().hasAll([
+          'uid', 'nick', 'nickLower', 'bio', 'interests',
+          'favorites', 'photo', 'mood', 'updatedAt'
+        ])
+        && d.keys().hasOnly([
+          'uid', 'nick', 'nickLower', 'bio', 'interests',
+          'favorites', 'photo', 'mood', 'updatedAt'
+        ])
+        && validUid(d.uid)
+        && d.uid == uid
+        && d.nick is string
+        && d.nick.size() >= 2
+        && d.nick.size() <= 40
+        && validNick(d.nickLower)
+        && d.bio is string
+        && d.bio.size() <= 500
+        && d.interests is string
+        && d.interests.size() <= 180
+        && d.favorites is string
+        && d.favorites.size() <= 180
+        && d.photo is string
+        && d.photo.size() <= 600000
+        && d.mood in [
+          '', '🌷 Спокойное', '✨ Вдохновлённое', '🌙 Задумчивое',
+          '💗 Романтичное', '☁️ Немного грустное', '🔥 Полна энергии'
+        ]
+        && d.updatedAt is timestamp
+        && d.updatedAt == request.time
+        && existsAfter(usernamePath)
+        && getAfter(usernamePath).data.uid == uid
+        && getAfter(usernamePath).data.nick == d.nick
+        && getAfter(usernamePath).data.nickLower == d.nickLower;
     }
 
     match /lunaProfiles/{uid} {
-      allow read: if signedIn();
-      allow create, update: if isSelf(uid)
-        && request.resource.data.uid == uid
-        && request.resource.data.keys().hasOnly([
-          'uid', 'nick', 'nickLower', 'bio', 'interests',
-          'favorites', 'photo', 'mood', 'updatedAt'
-        ]);
-      allow delete: if isSelf(uid);
+      allow get: if signedIn()
+        && (request.auth.uid == uid || isFriend(uid));
+      allow list: if false;
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && validProfile(uid);
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && resource.data.uid == uid
+        && validProfile(uid);
+      allow delete: if false;
+    }
+
+    // Exact nickname lookup exposes only the username and UID, never full profiles.
+    match /lunaUsernames/{nickLower} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && validUsername(nickLower);
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && validUsername(nickLower);
+      allow delete: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid))
+        && getAfter(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid)).data.nickLower != nickLower;
     }
 
     match /lunaFriendRequests/{requestId} {
-      allow read: if signedIn()
+      allow get, list: if signedIn()
         && (resource.data.fromUid == request.auth.uid
           || resource.data.toUid == request.auth.uid);
+
       allow create: if signedIn()
-        && request.resource.data.fromUid == request.auth.uid
-        && request.resource.data.toUid is string
-        && request.resource.data.toUid != request.auth.uid
-        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasAll([
+          'fromUid', 'toUid', 'fromNick', 'toNick',
+          'toNickLower', 'status', 'createdAt'
+        ])
         && request.resource.data.keys().hasOnly([
-          'fromUid', 'toUid', 'fromNick', 'toNick', 'status', 'createdAt'
-        ]);
+          'fromUid', 'toUid', 'fromNick', 'toNick',
+          'toNickLower', 'status', 'createdAt'
+        ])
+        && validUid(request.resource.data.fromUid)
+        && request.resource.data.fromUid == request.auth.uid
+        && validUid(request.resource.data.toUid)
+        && requestId == request.resource.data.fromUid + '~' + request.resource.data.toUid
+        && request.resource.data.toUid is string
+        && request.resource.data.toUid.size() > 0
+        && request.resource.data.toUid.size() <= 128
+        && request.resource.data.toUid != request.auth.uid
+        && request.resource.data.fromNick is string
+        && request.resource.data.fromNick.size() >= 2
+        && request.resource.data.fromNick.size() <= 40
+        && request.resource.data.toNick is string
+        && request.resource.data.toNick.size() >= 2
+        && request.resource.data.toNick.size() <= 40
+        && validNick(request.resource.data.toNickLower)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt == request.time
+        && exists(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid)).data.nick == request.resource.data.fromNick
+        && exists(/databases/$(database)/documents/lunaUsernames/$(request.resource.data.toNickLower))
+        && get(/databases/$(database)/documents/lunaUsernames/$(request.resource.data.toNickLower)).data.uid == request.resource.data.toUid
+        && get(/databases/$(database)/documents/lunaUsernames/$(request.resource.data.toNickLower)).data.nick == request.resource.data.toNick
+        && !exists(pairPath(request.auth.uid, request.resource.data.toUid))
+        && (!exists(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.toUid + '~' + request.auth.uid))
+          || get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.toUid + '~' + request.auth.uid)).data.status == 'declined');
+
       allow update: if signedIn()
-        && resource.data.toUid == request.auth.uid
-        && resource.data.status == 'pending'
-        && request.resource.data.fromUid == resource.data.fromUid
-        && request.resource.data.toUid == resource.data.toUid
-        && request.resource.data.status in ['accepted', 'declined']
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
-      allow delete: if signedIn()
-        && (resource.data.fromUid == request.auth.uid
-          || resource.data.toUid == request.auth.uid);
+        && requestId == resource.data.fromUid + '~' + resource.data.toUid
+        && (
+          (
+            resource.data.toUid == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.fromUid == resource.data.fromUid
+            && request.resource.data.toUid == resource.data.toUid
+            && request.resource.data.fromNick == resource.data.fromNick
+            && request.resource.data.toNick == resource.data.toNick
+            && request.resource.data.toNickLower == resource.data.toNickLower
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.status in ['accepted', 'declined']
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+            && (request.resource.data.status != 'accepted'
+              || (existsAfter(pairPath(resource.data.fromUid, resource.data.toUid))
+                && resource.data.fromUid in getAfter(pairPath(resource.data.fromUid, resource.data.toUid)).data.members
+                && resource.data.toUid in getAfter(pairPath(resource.data.fromUid, resource.data.toUid)).data.members))
+          )
+          ||
+          (
+            resource.data.fromUid == request.auth.uid
+            && resource.data.status == 'declined'
+            && request.resource.data.status == 'pending'
+            && request.resource.data.fromUid == resource.data.fromUid
+            && request.resource.data.toUid == resource.data.toUid
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.fromNick is string
+            && request.resource.data.fromNick.size() >= 2
+            && request.resource.data.fromNick.size() <= 40
+            && request.resource.data.toNick is string
+            && request.resource.data.toNick.size() >= 2
+            && request.resource.data.toNick.size() <= 40
+            && validNick(request.resource.data.toNickLower)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'fromNick', 'toNick', 'toNickLower'
+            ])
+            && exists(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid))
+            && get(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid)).data.nick == request.resource.data.fromNick
+            && exists(/databases/$(database)/documents/lunaUsernames/$(request.resource.data.toNickLower))
+            && get(/databases/$(database)/documents/lunaUsernames/$(request.resource.data.toNickLower)).data.uid == request.resource.data.toUid
+            && get(/databases/$(database)/documents/lunaUsernames/$(request.resource.data.toNickLower)).data.nick == request.resource.data.toNick
+            && !exists(pairPath(request.auth.uid, request.resource.data.toUid))
+            && (!exists(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.toUid + '~' + request.auth.uid))
+              || get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.toUid + '~' + request.auth.uid)).data.status == 'declined')
+          )
+        );
+
+      allow delete: if false;
     }
 
     match /lunaFriends/{friendshipId} {
-      allow read: if signedIn()
+      allow get, list: if signedIn()
         && request.auth.uid in resource.data.members;
+
       allow create: if signedIn()
+        && request.resource.data.keys().hasAll(['members', 'requestId', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['members', 'requestId', 'createdAt'])
         && request.resource.data.members is list
         && request.resource.data.members.size() == 2
-        && request.auth.uid in request.resource.data.members
         && request.resource.data.requestId is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt == request.time
         && exists(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId))
-        && get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.status == 'accepted'
-        && get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.fromUid in request.resource.data.members
-        && get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.toUid in request.resource.data.members;
+        && get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.status == 'pending'
+        && getAfter(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.status == 'accepted'
+        && get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.toUid == request.auth.uid
+        && request.resource.data.members == (
+          get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.fromUid
+            < get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.toUid
+          ? [
+              get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.fromUid,
+              get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.toUid
+            ]
+          : [
+              get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.toUid,
+              get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.fromUid
+            ])
+        && friendshipId == pairId(
+          get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.fromUid,
+          get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.requestId)).data.toUid
+        );
+
       allow update, delete: if false;
     }
 
     match /lunaChats/{chatId} {
-      allow read: if isFriendChat(chatId);
-      allow create: if isFriendChat(chatId)
-        && request.resource.data.members is list
-        && request.resource.data.members.size() == 2
-        && request.auth.uid in request.resource.data.members;
-      allow update: if isFriendChat(chatId)
+      allow get, list: if isChatMember(chatId);
+      allow create: if isChatMember(chatId)
+        && request.resource.data.keys().hasAll(['members', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['members', 'updatedAt'])
+        && request.resource.data.members == get(
+          /databases/$(database)/documents/lunaFriends/$(chatId)
+        ).data.members
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isChatMember(chatId)
+        && request.resource.data.keys().hasAll(['members', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['members', 'updatedAt'])
         && request.resource.data.members == resource.data.members
-        && request.resource.data.members.size() == 2;
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']);
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow read: if isFriendChat(chatId);
-        allow create: if isFriendChat(chatId)
+        allow get, list: if isChatMember(chatId);
+        allow create: if isChatMember(chatId)
+          && request.resource.data.keys().hasAll(['fromUid', 'text', 'createdAt'])
+          && request.resource.data.keys().hasOnly(['fromUid', 'text', 'createdAt'])
           && request.resource.data.fromUid == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 2000
-          && request.resource.data.keys().hasOnly(['fromUid', 'text', 'createdAt']);
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.createdAt == request.time;
         allow update, delete: if false;
       }
     }
