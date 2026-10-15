@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updateProfile as updateAuthProfile } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, collection, doc, query, where, limit, orderBy, getDoc, getDocs, setDoc, updateDoc, onSnapshot, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, collection, doc, query, where, limit, orderBy, documentId, getDoc, getDocs, setDoc, updateDoc, onSnapshot, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDvb-FYk1-osvvQtFwuv8kPPRBgBJJU9EQ",
@@ -60,9 +60,13 @@ document.querySelectorAll("[data-page]").forEach((el) => el.addEventListener("cl
   event.preventDefault();
   page(el.dataset.page);
 }));
-function normalizeNick(value) { return String(value || "").trim().replace(/^@/, "").normalize("NFKC").toLocaleLowerCase("ru-RU"); }
+function normalizeNick(value) { return String(value || "").trim().replace(/^@/, "").normalize("NFKC").toLowerCase(); }
 function validNick(value) { const v = String(value || "").trim(); return v.length >= 2 && v.length <= 40 && !/[\/\\]/.test(v); }
 function pairId(a, b) { return [a, b].sort().join("~"); }
+async function hasFriendship(uid, otherUid) {
+  const snap = await getDocs(query(collection(db, "lunaFriends"), where("members", "array-contains", uid), where(documentId(), "==", pairId(uid, otherUid)), limit(1)));
+  return !snap.empty;
+}
 function profileRef(uid) { return doc(db, "lunaProfiles", uid); }
 function usernameRef(nickLower) { return doc(db, "lunaUsernames", nickLower); }
 function safeText(value) { return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
@@ -221,8 +225,7 @@ $("searchForm").addEventListener("submit", async (event) => {
     if (!snap.exists()) { feedback("searchResult", "Никнейм «" + raw + "» не найден. Проверь написание или попроси подругу сохранить профиль."); return; }
     const account = snap.data();
     if (!account.uid || account.uid === state.user.uid) { feedback("searchResult", account.uid === state.user.uid ? "Это твой никнейм 🙂" : "Профиль ещё настраивается."); return; }
-    const existing = await getDocs(query(collection(db, "lunaFriends"), where("members", "array-contains", state.user.uid), limit(200)));
-    const alreadyFriends = existing.docs.some((friend) => friend.id === pairId(state.user.uid, account.uid));
+    const alreadyFriends = await hasFriendship(state.user.uid, account.uid);
     if (alreadyFriends) { feedback("searchResult", account.nick + " уже у тебя в подругах 💗"); return; }
     showSearchCard(account.nick || raw, account.uid, nickLower);
   } catch (error) { feedback("searchResult", errorMessage(error, "read"), "error"); }
@@ -232,8 +235,7 @@ async function sendRequest(uid, nick, nickLower, button) {
   if (!state.user || uid === state.user.uid) return;
   setBusy(button, true, "Отправляем…");
   try {
-    const friends = await getDocs(query(collection(db, "lunaFriends"), where("members", "array-contains", state.user.uid), limit(200)));
-    if (friends.docs.some((friend) => friend.id === pairId(state.user.uid, uid))) { feedback("searchResult", "Вы уже подруги 💗"); return; }
+    if (await hasFriendship(state.user.uid, uid)) { feedback("searchResult", "Вы уже подруги 💗"); return; }
     const [profileSnap, usernameSnap] = await Promise.all([getDoc(profileRef(state.user.uid)), getDoc(usernameRef(nickLower))]);
     if (!profileSnap.exists() || !profileSnap.data().nick) { feedback("searchResult", "Сначала сохрани свой профиль и никнейм."); return; }
     if (!usernameSnap.exists() || usernameSnap.data().uid !== uid) { feedback("searchResult", "Никнейм изменился. Найди подругу ещё раз."); return; }
@@ -294,10 +296,9 @@ async function respondRequest(id, accept) {
   if (!state.user) return;
   try {
     const ref = doc(db, "lunaFriendRequests", id);
-    const [friendQuery] = await Promise.all([
-      getDocs(query(collection(db, "lunaFriends"), where("members", "array-contains", state.user.uid), limit(200)))
-    ]);
-    const alreadyFriends = friendQuery.docs.some((snap) => snap.id === id.replace(state.user.uid + "~", "").replace("~" + state.user.uid, ""));
+    const otherUid = id.split("~").find((uid) => uid !== state.user.uid);
+    if (!otherUid) throw Object.assign(new Error("invalid-request"), { code: "luna/request-stale" });
+    const alreadyFriends = await hasFriendship(state.user.uid, otherUid);
     await runTransaction(db, async (tx) => {
       const requestSnap = await tx.get(ref);
       if (!requestSnap.exists() || requestSnap.data().toUid !== state.user.uid || requestSnap.data().status !== "pending") throw Object.assign(new Error("stale"), { code: "luna/request-stale" });
@@ -328,8 +329,8 @@ async function openChat(uid, name) {
   $("chatTitle").textContent = "Чат с " + name;
   $("chatEmpty").textContent = "Загружаем чат…";
   try {
-    const friend = await getDoc(doc(db, "lunaFriends", pairId(state.user.uid, uid)));
-    if (!friend.exists() || !friend.data().members?.includes(state.user.uid)) { $("chatEmpty").textContent = "Чат доступен только после подтверждения дружбы."; return; }
+    const isFriend = await hasFriendship(state.user.uid, uid);
+    if (!isFriend) { $("chatEmpty").textContent = "Чат доступен только после подтверждения дружбы."; return; }
     await setDoc(doc(db, "lunaChats", pairId(state.user.uid, uid)), { members: [state.user.uid, uid].sort(), updatedAt: serverTimestamp() }, { merge: true });
     $("chatEmpty").classList.add("hidden");
     $("chatPanel").classList.remove("hidden");
