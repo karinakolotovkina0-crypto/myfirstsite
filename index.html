@@ -57,7 +57,48 @@ function profileRef(uid){return db.collection("lunaProfiles").doc(uid)}
 async function ensureProfileDoc(){if(!user||!db)return;try{var ref=profileRef(user.uid),snap=await ref.get();if(snap.exists)return;var p={};try{p=JSON.parse(localStorage.getItem(localProfileKey())||"{}")}catch(e){}await ref.set({uid:user.uid,nick:user.displayName||p.nick||"",nickLower:(user.displayName||p.nick||"").toLowerCase(),bio:p.bio||"",interests:p.interests||"",favorites:p.favorites||"",mood:p.mood||"",photo:p.photo||user.photoURL||"",updatedAt:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){status("Вход выполнен, но не удалось подготовить профиль для поиска подруг: "+errorText(e),"error")}}
 function socialError(e){return errorText(e)}
 async function loadSocial(){if(!user||!db){socialStatus("friendRequests","Войди в аккаунт и подключи базу Firestore.");socialStatus("friendsList","Войди в аккаунт и подключи базу Firestore.");return}try{var incoming=await db.collection("lunaFriendRequests").where("toUid","==",user.uid).where("status","==","pending").get();$("friendRequests").innerHTML=incoming.empty?"Пока нет новых заявок.":incoming.docs.map(function(d){var x=d.data();return '<div class="post"><b>'+escapeHtml(x.fromNick||"Участница LUNA")+'</b><p>Хочет добавить тебя в друзья</p><button class="btn accept-request" data-id="'+d.id+'">Принять</button> <button class="soft decline-request" data-id="'+d.id+'">Отклонить</button></div>'}).join("");var fs=await db.collection("lunaFriends").where("members","array-contains",user.uid).get();if(fs.empty){$("friendsList").textContent="Пока никого нет — найди подругу по никнейму выше."}else{var ids=[];fs.docs.forEach(function(d){(d.data().members||[]).forEach(function(id){if(id!==user.uid&&ids.indexOf(id)<0)ids.push(id)})});var profiles=await Promise.all(ids.map(function(id){return profileRef(id).get()}));$("friendsList").innerHTML=profiles.filter(function(d){return d.exists}).map(function(d){var x=d.data();return '<div class="post"><b>'+escapeHtml(x.nick||"Лунная девочка")+'</b><p>'+escapeHtml(x.interests||x.bio||"Участница LUNA")+'</p><button class="btn open-chat" data-uid="'+escapeHtml(x.uid)+'" data-nick="'+escapeHtml(x.nick||"Подруга")+'">Написать</button></div>'}).join("")||"Список подруг пока пуст."}}catch(e){socialStatus("friendRequests",socialError(e));socialStatus("friendsList",socialError(e))}}
-async function searchFriend(){if(!user){socialStatus("friendSearchResult","Сначала войди в аккаунт в разделе «Профиль».");return}if(!db){socialStatus("friendSearchResult","База данных не подключена.");return}var nick=$("friendSearch").value.trim().toLowerCase();if(nick.length<2){socialStatus("friendSearchResult","Введи никнейм (минимум 2 символа).");return}try{var snap=await db.collection("lunaProfiles").where("nickLower","==",nick).limit(10).get();if(snap.empty){socialStatus("friendSearchResult","Не нашла участницу с таким никнеймом. Попроси её сохранить профиль.");return}var docs=snap.docs.filter(function(d){return d.id!==user.uid});$("friendSearchResult").innerHTML=docs.map(function(d){var x=d.data();return '<div class="post"><b>'+escapeHtml(x.nick||"Участница LUNA")+'</b><p>'+escapeHtml(x.bio||x.interests||"")+'</p><button class="btn add-friend" data-uid="'+escapeHtml(x.uid||d.id)+'" data-nick="'+escapeHtml(x.nick||"Подруга")+'">＋ Добавить в друзья</button></div>'}).join("")||"Это твой собственный профиль 💗"}catch(e){socialStatus("friendSearchResult",socialError(e))}}
+async function searchFriend(){
+  var result=$("friendSearchResult"),button=$("searchFriend");
+  if(!result)return;
+  if(!user){result.textContent="Сначала войди в аккаунт в разделе «Профиль».";return}
+  if(!db){result.textContent="База данных не подключена. Обнови страницу и попробуй снова.";return}
+  var raw=$("friendSearch").value.trim();
+  var nick=raw.toLocaleLowerCase("ru-RU");
+  if(nick.length<2){result.textContent="Введи никнейм целиком (минимум 2 символа).";$("friendSearch").focus();return}
+  button.disabled=true;
+  button.textContent="Ищем…";
+  result.className="muted";
+  result.textContent="Ищем «"+raw+"» среди профилей LUNA…";
+  try{
+    // First use the normalized index used by current profiles.
+    var snap=await timeout(db.collection("lunaProfiles").where("nickLower","==",nick).limit(20).get(),10000);
+    var docs=snap.docs.slice();
+    // Older profiles may not have nickLower. Check visible profile records as a fallback.
+    if(docs.length===0){
+      var all=await timeout(db.collection("lunaProfiles").limit(200).get(),10000);
+      docs=all.docs.filter(function(d){
+        var x=d.data()||{};
+        return String(x.nick||"").trim().toLocaleLowerCase("ru-RU")===nick;
+      });
+    }
+    docs=docs.filter(function(d){return d.id!==user.uid && (d.data().uid||d.id)!==user.uid});
+    if(!docs.length){
+      result.textContent="Не нашли профиль с никнеймом «"+raw+"». Проверь написание. Если это другой аккаунт, его владелице нужно войти в него и нажать «Сохранить профиль».";
+      return;
+    }
+    result.innerHTML=docs.map(function(d){
+      var x=d.data()||{};
+      var targetUid=x.uid||d.id;
+      return '<div class="post"><b>'+escapeHtml(x.nick||"Участница LUNA")+'</b><p>'+escapeHtml(x.bio||x.interests||"Участница LUNA")+'</p><button type="button" class="btn add-friend" data-uid="'+escapeHtml(targetUid)+'" data-nick="'+escapeHtml(x.nick||"Подруга")+'">＋ Добавить в друзья</button></div>';
+    }).join("");
+  }catch(e){
+    result.className="status error";
+    result.textContent="Не удалось найти профиль: "+socialError(e);
+  }finally{
+    button.disabled=false;
+    button.textContent="Найти";
+  }
+}
 async function sendRequest(uid,nick){if(!user||!db||uid===user.uid)return;try{var old=await db.collection("lunaFriendRequests").where("fromUid","==",user.uid).where("toUid","==",uid).where("status","==","pending").get();if(!old.empty){socialStatus("friendSearchResult","Заявка уже отправлена 💗");return}var my=await profileRef(user.uid).get(),myNick=my.exists?my.data().nick:(user.displayName||"Участница");await db.collection("lunaFriendRequests").add({fromUid:user.uid,toUid:uid,fromNick:myNick,toNick:nick,status:"pending",createdAt:firebase.firestore.FieldValue.serverTimestamp()});socialStatus("friendSearchResult","Заявка отправлена! 💌")}catch(e){socialStatus("friendSearchResult",socialError(e))}}
 async function acceptRequest(id,accept){if(!user||!db)return;try{var ref=db.collection("lunaFriendRequests").doc(id),snap=await ref.get();if(!snap.exists||snap.data().toUid!==user.uid)return;var x=snap.data();await ref.update({status:accept?"accepted":"declined"});if(accept){var members=[x.fromUid,x.toUid].sort();await db.collection("lunaFriends").doc(members.join("_")).set({members:members,requestId:id,createdAt:firebase.firestore.FieldValue.serverTimestamp()})}await loadSocial()}catch(e){socialStatus("friendRequests",socialError(e))}}
 async function openChat(uid,nick){if(!user||!db)return;if(chatUnsub){chatUnsub();chatUnsub=null}activeChatUid=uid;$("chatEmpty").classList.add("hidden");$("chatPanel").classList.remove("hidden");$("chatWith").textContent="Чат с "+nick+" 💗";$("chatMessages").textContent="Загружаем сообщения…";var chatId=[user.uid,uid].sort().join("_");try{var f=await db.collection("lunaFriends").doc(chatId).get();if(!f.exists){$("chatMessages").textContent="Чат доступен только после подтверждения заявки в друзья.";return}await db.collection("lunaChats").doc(chatId).set({members:[user.uid,uid].sort(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});chatUnsub=db.collection("lunaChats").doc(chatId).collection("messages").orderBy("createdAt","asc").limit(100).onSnapshot(function(snap){$("chatMessages").innerHTML=snap.docs.map(function(d){var x=d.data(),mine=x.fromUid===user.uid,time=x.createdAt&&x.createdAt.toDate?x.createdAt.toDate().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"";return '<div class="bubble '+(mine?"mine":"theirs")+'">'+escapeHtml(x.text||"")+'<time>'+time+'</time></div>'}).join("")||'<p class="muted">Напиши первое сообщение ✨</p>';$("chatMessages").scrollTop=$("chatMessages").scrollHeight},function(e){$("chatMessages").textContent=socialError(e)})}catch(e){$("chatMessages").textContent=socialError(e)}}
