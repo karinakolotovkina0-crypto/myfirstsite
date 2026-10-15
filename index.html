@@ -72,6 +72,59 @@ p{line-height:1.55}
 #social.page.active .btn:hover{background:#000;color:#fff}
 @media(max-width:520px){.top{padding:18px 16px 14px}.page{padding:18px 16px 30px}.hero{padding:24px}.hero:after{font-size:clamp(100px,29vw,150px)}.panel{padding:16px}.tile{padding:13px;min-height:108px}.nav button{font-size:10px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+
+/* Contrast and unified typography pass */
+:root{--ink:#000000;--muted:#45443f;--plum:#000000;--pink:#e7e5e4;--lilac:#dfdcd5;--line:#8c8a82;--white:#ffffff;--color-putty:#c4c3b6;--color-bone:#e7e5e4;--color-chalk:#ebebeb;--color-vellum:#8c8a82;--color-graphite:#45443f;--color-paper:#ffffff;--font-editorial:Arial,Helvetica,sans-serif;--font-utility:Arial,Helvetica,sans-serif}
+*,*::before,*::after{font-family:Arial,Helvetica,sans-serif!important}
+body{color:#000;background:#c4c3b6;font-size:15px;line-height:1.5}
+h1,h2,h3,.brand{font-family:Arial,Helvetica,sans-serif!important;font-weight:700;letter-spacing:-.025em;color:#000}
+h1{line-height:1.08}
+h2{line-height:1.2}
+h3{line-height:1.3}
+.muted,.note{color:#45443f;font-size:14px;line-height:1.5}
+.top .muted{color:#45443f}
+.hero,.petbox{background:#c4c3b6;color:#000;border-color:#000}
+.hero .muted,.petbox>.muted:first-child{color:#45443f}
+.hero:after{font-family:Arial,Helvetica,sans-serif!important;font-weight:700;letter-spacing:-.07em;color:#000}
+.panel,.tile,.post{background:#e7e5e4;color:#000;border:1px solid #76746e;box-shadow:none}
+.tile strong,.tile small{color:#000}
+.tile small{opacity:1}
+.tile:hover,.tile:focus-visible{background:#fff;border-color:#000}
+.btn{background:#000;color:#fff;border:2px solid #000;font-weight:700}
+.btn:hover,.btn:focus-visible{background:#fff;color:#000}
+.btn:disabled{background:#45443f;color:#fff;border-color:#45443f;opacity:1}
+.soft{background:transparent;color:#000;font-weight:600}
+.soft:hover,.soft:focus-visible{background:#000;color:#fff;text-decoration:none}
+.field{background:#fff;color:#000;border:2px solid #595855}
+.field::placeholder{color:#595855;opacity:1}
+.field:focus{outline:3px solid #000;outline-offset:2px}
+.field-label{color:#000;font-weight:700}
+.status{background:#fff;color:#000;border:2px solid #595855}
+.status.error{background:#fff;color:#000;border-color:#000}
+.status.success{background:#fff;color:#000;border-color:#000}
+.nav{background:#000;border-top:2px solid #000}
+.nav button{background:#000;color:#e7e5e4;font-weight:600}
+.nav button.active{color:#fff}
+.nav button.active:after{background:#fff}
+.nav button:focus-visible{outline:3px solid #fff;outline-offset:-4px}
+#social.page.active{background:#000;color:#fff}
+#social.page.active h1,#social.page.active h2,#social.page.active h3{color:#fff}
+#social.page.active>.muted,#social.page.active>.note{color:#e7e5e4}
+#social.page.active .panel{background:#111;color:#fff;border:1px solid #c4c3b6}
+#social.page.active .panel h2,#social.page.active .panel h3{color:#fff}
+#social.page.active .panel p,#social.page.active .panel .muted,#social.page.active .panel .note{color:#e7e5e4}
+#social.page.active .field{background:#fff;color:#000;border-color:#fff}
+#social.page.active .field::placeholder{color:#45443f}
+#social.page.active .soft{color:#fff}
+#social.page.active .soft:hover,#social.page.active .soft:focus-visible{background:#fff;color:#000}
+#social.page.active .btn{background:#fff;color:#000;border-color:#fff}
+#social.page.active .btn:hover,#social.page.active .btn:focus-visible{background:#000;color:#fff}
+#social.page.active .status{background:#fff;color:#000;border-color:#fff}
+#social.page.active .chat-messages{background:#e7e5e4;color:#000;border-color:#fff}
+.tarot,.chat-messages{color:#000}
+a{color:#000}
+a:focus-visible{outline:3px solid #000;outline-offset:3px}
+@media(max-width:520px){.hero:after{font-family:Arial,Helvetica,sans-serif!important}}
 </style>
 </head>
 <body>
