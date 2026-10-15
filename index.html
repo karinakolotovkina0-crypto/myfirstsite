@@ -474,7 +474,7 @@ async function acceptRequest(id,accept){
 
 function safeAvatarSource(value){
   var source=String(value||"");
-  if(/^data:image\\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+=*$/i.test(source))return source;
+  if(/^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+=*$/i.test(source))return source;
   try{var url=new URL(source);if(url.protocol==="https:")return url.href}catch(ignore){}
   return "";
 }
@@ -484,7 +484,7 @@ function avatarMarkup(photo,name,extraClass){
 }
 function isStickerMessage(text){return String(text||"").indexOf("[[luna-sticker]]")===0}
 function validStickerUrl(value){
-  try{var url=new URL(String(value||""));return url.protocol==="https:"&&(/(^|\\.)tenor\\.com$/i.test(url.hostname)||/(^|\\.)giphy\\.com$/i.test(url.hostname))?url.href:""}catch(ignore){return ""}
+  try{var url=new URL(String(value||""));return url.protocol==="https:"&&(/(^|\.)tenor\.com$/i.test(url.hostname)||/(^|\.)giphy\.com$/i.test(url.hostname))?url.href:""}catch(ignore){return ""}
 }
 function renderMessageBody(text){
   var value=String(text||"");
