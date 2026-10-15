@@ -44,6 +44,47 @@ service cloud.firestore {
         ).data.members;
     }
 
+    function roomPath(roomId) {
+      return /databases/$(database)/documents/lunaRooms/$(roomId);
+    }
+
+    function roomInvitePath(roomId, uid) {
+      return /databases/$(database)/documents/lunaRoomInvites/$(roomId + '~' + uid);
+    }
+
+    function isRoomMember(roomId) {
+      return signedIn()
+        && exists(roomPath(roomId))
+        && request.auth.uid in get(roomPath(roomId)).data.members;
+    }
+
+    function canReadRoom(roomId) {
+      let invitePath = roomInvitePath(roomId, request.auth.uid);
+      return isRoomMember(roomId)
+        || (signedIn() && exists(invitePath)
+          && get(invitePath).data.status == 'pending');
+    }
+
+    function validRoomMessage(roomId) {
+      let d = request.resource.data;
+      let room = get(roomPath(roomId)).data;
+      return d.keys().hasAll(['fromUid', 'text', 'createdAt'])
+        && d.keys().hasOnly(['fromUid', 'text', 'createdAt', 'image'])
+        && d.fromUid == request.auth.uid
+        && (
+          (!d.keys().hasAny(['image'])
+            && d.text is string && d.text.size() > 0 && d.text.size() <= 2000)
+          || (d.keys().hasAny(['image'])
+            && d.image is string && d.image.size() > 0
+            && d.image.size() <= 700000
+            && d.image.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$')
+            && d.text == '')
+        )
+        && d.createdAt is timestamp
+        && d.createdAt == request.time
+        && (room.type == 'group' || request.auth.uid == room.ownerUid);
+    }
+
     function validUsername(nickLower) {
       let d = request.resource.data;
       return d.keys().hasAll(['uid', 'nick', 'nickLower', 'updatedAt'])
@@ -97,6 +138,144 @@ service cloud.firestore {
         && getAfter(usernamePath).data.uid == uid
         && getAfter(usernamePath).data.nick == d.nick
         && getAfter(usernamePath).data.nickLower == d.nickLower;
+    }
+
+
+    // Rooms remain private: only members may list; invitees can read their pending invite's room.
+    match /lunaRooms/{roomId} {
+      allow get: if canReadRoom(roomId);
+      allow list: if isRoomMember(roomId);
+
+      // Rooms start with the creator alone. Members join only through verified invitations.
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll([
+          'type', 'title', 'description', 'ownerUid', 'members', 'admins',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'type', 'title', 'description', 'ownerUid', 'members', 'admins',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.type in ['group', 'channel']
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 2
+        && request.resource.data.title.size() <= 60
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 300
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.members == [request.auth.uid]
+        && request.resource.data.admins == [request.auth.uid]
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if signedIn()
+        && request.resource.data.keys().hasAll([
+          'type', 'title', 'description', 'ownerUid', 'members', 'admins',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'type', 'title', 'description', 'ownerUid', 'members', 'admins',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.admins == resource.data.admins
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'description', 'members', 'updatedAt'
+        ])
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            resource.data.ownerUid == request.auth.uid
+            && request.resource.data.members == resource.data.members
+            && request.resource.data.title is string
+            && request.resource.data.title.size() >= 2
+            && request.resource.data.title.size() <= 60
+            && request.resource.data.description is string
+            && request.resource.data.description.size() <= 300
+          )
+          ||
+          (
+            request.resource.data.title == resource.data.title
+            && request.resource.data.description == resource.data.description
+            && resource.data.members is list
+            && resource.data.members.size() < 50
+            && request.resource.data.members is list
+            && request.resource.data.members.size() == resource.data.members.size() + 1
+            && request.resource.data.members.toSet().hasAll(resource.data.members)
+            && request.auth.uid in request.resource.data.members
+            && !(request.auth.uid in resource.data.members)
+            && exists(roomInvitePath(roomId, request.auth.uid))
+            && get(roomInvitePath(roomId, request.auth.uid)).data.fromUid == resource.data.ownerUid
+            && get(roomInvitePath(roomId, request.auth.uid)).data.status == 'pending'
+            && getAfter(roomInvitePath(roomId, request.auth.uid)).data.status == 'accepted'
+          )
+        );
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow get, list: if isRoomMember(roomId);
+        allow create: if isRoomMember(roomId) && validRoomMessage(roomId);
+        allow update, delete: if false;
+      }
+    }
+
+    match /lunaRoomInvites/{inviteId} {
+      allow get, list: if signedIn()
+        && (resource.data.toUid == request.auth.uid
+          || resource.data.fromUid == request.auth.uid);
+
+      // Only an existing friend may be invited. getAfter supports an atomic room + invite creation.
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll([
+          'roomId', 'toUid', 'fromUid', 'status', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'roomId', 'toUid', 'fromUid', 'status', 'createdAt'
+        ])
+        && request.resource.data.roomId is string
+        && request.resource.data.roomId.size() > 0
+        && validUid(request.resource.data.toUid)
+        && request.resource.data.toUid != request.auth.uid
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt == request.time
+        && inviteId == request.resource.data.roomId + '~' + request.resource.data.toUid
+        && isFriend(request.resource.data.toUid)
+        && existsAfter(roomPath(request.resource.data.roomId))
+        && getAfter(roomPath(request.resource.data.roomId)).data.ownerUid == request.auth.uid
+        && !(request.resource.data.toUid in getAfter(roomPath(request.resource.data.roomId)).data.members);
+
+      allow update: if signedIn()
+        && resource.data.toUid == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.roomId == resource.data.roomId
+        && request.resource.data.toUid == resource.data.toUid
+        && request.resource.data.fromUid == resource.data.fromUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.status in ['accepted', 'declined']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && (
+          request.resource.data.status == 'declined'
+          || (
+            exists(roomPath(resource.data.roomId))
+            && resource.data.fromUid == get(roomPath(resource.data.roomId)).data.ownerUid
+            && !(request.auth.uid in get(roomPath(resource.data.roomId)).data.members)
+            && getAfter(roomPath(resource.data.roomId)).data.members.size()
+              == get(roomPath(resource.data.roomId)).data.members.size() + 1
+            && getAfter(roomPath(resource.data.roomId)).data.members.toSet()
+              .hasAll(get(roomPath(resource.data.roomId)).data.members)
+            && request.auth.uid in getAfter(roomPath(resource.data.roomId)).data.members
+          )
+        );
+
+      allow delete: if false;
     }
 
     match /lunaProfiles/{uid} {
