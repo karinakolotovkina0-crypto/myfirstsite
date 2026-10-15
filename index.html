@@ -242,9 +242,11 @@ async function acceptRequest(id,accept){
         if(!snap.exists||snap.data().toUid!==user.uid||snap.data().status!=="pending"){var stale=new Error("Заявка уже обработана или недоступна.");stale.code="luna/request-stale";throw stale}
         var x=snap.data(),members=[x.fromUid,x.toUid].sort(),friendRef=db.collection("lunaFriends").doc(friendIdFor(members[0],members[1]));
         if(!accept){tx.update(requestRef,{status:"declined"});return}
-        return tx.get(friendRef).then(function(friendSnap){
+        var friendQuery=db.collection("lunaFriends").where("members","array-contains",user.uid);
+        return tx.get(friendQuery).then(function(friendSnap){
+          var alreadyFriends=friendSnap.docs.some(function(doc){var data=doc.data();return doc.id===friendRef.id&&Array.isArray(data.members)&&data.members.indexOf(x.fromUid)>=0&&data.members.indexOf(x.toUid)>=0});
           tx.update(requestRef,{status:"accepted"});
-          if(!friendSnap.exists)tx.set(friendRef,{members:members,requestId:id,createdAt:serverTimestamp()})
+          if(!alreadyFriends)tx.set(friendRef,{members:members,requestId:id,createdAt:serverTimestamp()})
         })
       })
     }),20000);
