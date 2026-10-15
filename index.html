@@ -39,70 +39,200 @@ function status(message,type){var el=$("authStatus");if(el){el.textContent=messa
 function socialStatus(id,message){var el=$(id);if(el)el.textContent=message;}
 function escapeHtml(value){return String(value==null?"":value).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function timeout(promise,ms){var timer;return Promise.race([promise,new Promise(function(_,reject){timer=setTimeout(function(){var e=new Error("Запрос к Firestore не завершился за "+Math.round(ms/1000)+" секунд. Это может быть интернет, ограничения API-ключа или настройки Firestore.");e.code="luna/timeout";reject(e)},ms)})]).finally(function(){clearTimeout(timer)})}
-function errorText(e){var code=e&&e.code||"";var map={"luna/timeout":"Запрос к Firestore не завершился за отведённое время. Проверь Firestore → Rules (правила должны быть опубликованы), что база default создана в проекте luna-a9fa5, и ограничения API-ключа в Google Cloud. Если всё верно, пришли скриншот правил после публикации.","auth/email-already-in-use":"Эта почта уже зарегистрирована. Переключись на «Войти».","auth/invalid-email":"Введи корректный адрес электронной почты.","auth/weak-password":"Пароль должен содержать минимум 6 символов.","auth/invalid-credential":"Почта или пароль неверны. Проверь данные или восстанови пароль.","auth/user-not-found":"Аккаунт с этой почтой не найден. Создай аккаунт.","auth/wrong-password":"Неверный пароль. Используй восстановление пароля.","auth/operation-not-allowed":"В Firebase не включён Email/Password: Authentication → Sign-in method.","auth/network-request-failed":"Не удалось подключиться к Firebase. Проверь интернет и попробуй снова.","auth/too-many-requests":"Слишком много попыток. Подожди немного.","auth/unauthorized-domain":"Домен не разрешён. Добавь karinakolotovkina0-crypto.github.io в Firebase → Authentication → Settings → Authorized domains.","auth/invalid-api-key":"Firebase отклонил API-ключ. Проверь Web app config и ограничения ключа.","auth/app-not-authorized":"Firebase не разрешил вход этому приложению.","auth/configuration-not-found":"Проверь настройки Authentication в проекте luna-a9fa5.","permission-denied":"В Firestore запрещена операция. Нужно добавить правила безопасности базы данных.","unavailable":"Firestore недоступен. Проверь интернет.", "failed-precondition":"Firestore требует настройки индекса или базы. Пришли полный текст ошибки.", "not-found":"База или документ не найдены. Проверь, что используется проект luna-a9fa5."};return map[code]||("Ошибка "+(code||"без кода")+": "+(e&&e.message||"неизвестная ошибка"))}
+function errorText(e){var code=e&&e.code||"";var map={"luna/timeout":"Запрос к Firestore не завершился за отведённое время. Проверь доступность Firestore и обнови страницу.","luna/nickname-taken":"Этот никнейм уже занят. Выбери другой.","luna/invalid-nickname":"Никнейм должен быть от 2 до 40 символов и не содержать /.","luna/request-stale":"Заявка уже обработана. Обновляю список.","auth/email-already-in-use":"Эта почта уже зарегистрирована. Переключись на «Войти».","auth/invalid-email":"Введи корректный адрес электронной почты.","auth/weak-password":"Пароль должен содержать минимум 6 символов.","auth/invalid-credential":"Почта или пароль неверны. Проверь данные или восстанови пароль.","auth/user-not-found":"Аккаунт с этой почтой не найден. Создай аккаунт.","auth/wrong-password":"Неверный пароль. Используй восстановление пароля.","auth/operation-not-allowed":"В Firebase не включён Email/Password: Authentication → Sign-in method.","auth/network-request-failed":"Не удалось подключиться к Firebase. Проверь интернет и попробуй снова.","auth/too-many-requests":"Слишком много попыток. Подожди немного.","auth/unauthorized-domain":"Домен не разрешён. Добавь karinakolotovkina0-crypto.github.io в Firebase → Authentication → Settings → Authorized domains.","auth/invalid-api-key":"Firebase отклонил API-ключ. Проверь Web app config и ограничения ключа.","auth/app-not-authorized":"Firebase не разрешил вход этому приложению.","auth/configuration-not-found":"Проверь настройки Authentication в проекте luna-a9fa5.","permission-denied":"Firestore отклонил действие. Проверь, что новые правила Firestore опубликованы и соответствуют обновлённой версии LUNA.","unavailable":"Firestore недоступен. Проверь интернет.", "failed-precondition":"Firestore требует настройки индекса или базы. Пришли полный текст ошибки.", "not-found":"База или документ не найдены. Проверь, что используется проект luna-a9fa5."};return map[code]||("Ошибка "+(code||"без кода")+": "+(e&&e.message||"неизвестная ошибка"))}
 function setMode(next){mode=next;$("nickWrap").classList.toggle("hidden",mode!=="signup");$("authSubmit").textContent=mode==="signup"?"Создать аккаунт":"Войти";$("authPassword").autocomplete=mode==="signup"?"new-password":"current-password";$("modeSignup").style.fontWeight=mode==="signup"?"700":"400";$("modeLogin").style.fontWeight=mode==="login"?"700":"400";status(mode==="signup"?"Заполни поля, чтобы создать аккаунт.":"Введи почту и пароль от своего аккаунта.");}
 function page(id){document.querySelectorAll(".page").forEach(function(el){el.classList.toggle("active",el.id===id)});document.querySelectorAll("[data-page]").forEach(function(el){el.classList.toggle("active",el.dataset.page===id)});window.scrollTo({top:0,behavior:"auto"});if(id==="social")loadSocial();if(id==="cycle")renderCalendar()}
-function showUser(u){user=u;$("authForms").classList.toggle("hidden",!!u);$("signedInPanel").classList.toggle("hidden",!u);if(u){$("authHeading").textContent="Ты вошла в LUNA 💗";$("profileGreeting").textContent="Привет, "+(u.displayName||"лунная девочка")+" 🌷";$("profileEmail").textContent=u.email||"";loadProfile();ensureProfileDoc();loadSocial();status("Вход выполнен успешно 💗","success")}else{if(chatUnsub){chatUnsub();chatUnsub=null}activeChatUid=null;$("chatPanel").classList.add("hidden");$("chatEmpty").classList.remove("hidden");status("Войди или создай аккаунт, чтобы начать.")}}
+function showUser(u){
+  user=u;
+  $("authForms").classList.toggle("hidden",!!u);
+  $("signedInPanel").classList.toggle("hidden",!u);
+  if(u){
+    $("authHeading").textContent="Ты вошла в LUNA 💗";
+    $("profileGreeting").textContent="Привет, "+(u.displayName||"лунная девочка")+" 🌷";
+    $("profileEmail").textContent=u.email||"";
+    loadProfile();
+    ensureProfileDoc(u).then(function(){return loadSocial()});
+    status("Вход выполнен успешно 💗","success")
+  }else{
+    if(chatUnsub){chatUnsub();chatUnsub=null}
+    activeChatUid=null;
+    $("chatPanel").classList.add("hidden");
+    $("chatEmpty").classList.remove("hidden");
+    status("Войди или создай аккаунт, чтобы начать.")
+  }
+}
 function init(){if(!window.firebase){status("Не загрузилась библиотека Firebase. Проверь интернет, отключи блокировщик контента и обнови страницу.","error");return}try{if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);auth=firebase.auth();db=firebase.firestore();try{db.settings({experimentalForceLongPolling:true})}catch(settingsError){}auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(){});auth.onAuthStateChanged(showUser,function(e){status(errorText(e),"error")});status("Firebase подключён. Можно создать аккаунт или войти.","success")}catch(e){status("Не удалось запустить Firebase: "+e.message,"error")}}
-async function submitAuth(event){if(event)event.preventDefault();var btn=$("authSubmit");if(!auth){status("Firebase ещё не подключился. Обнови страницу; если сообщение повторится, пришли скриншот.","error");return}var email=$("authEmail").value.trim().toLowerCase(),password=$("authPassword").value,nick=$("authNick").value.trim();if(!email||!password){status("Заполни электронную почту и пароль.","error");return}if(mode==="signup"&&password.length<6){status("Пароль должен содержать минимум 6 символов.","error");return}if(mode==="signup"&&nick.length<2){status("Введи имя или никнейм (минимум 2 символа).","error");return}btn.disabled=true;btn.textContent=mode==="signup"?"Создаём аккаунт…":"Входим…";status("Отправляем запрос Firebase…");try{if(mode==="signup"){var credential=await timeout(auth.createUserWithEmailAndPassword(email,password),12000);if(nick){try{await timeout(credential.user.updateProfile({displayName:nick}),8000)}catch(ignore){}}try{await timeout(credential.user.sendEmailVerification(),8000);status("Аккаунт создан! Проверь почту для подтверждения адреса. Ты уже вошла в LUNA 💗","success")}catch(ignore){status("Аккаунт создан и вход выполнен. Не получилось отправить письмо подтверждения; можно продолжить.","success")}if(db){try{await timeout(db.collection("lunaProfiles").doc(credential.user.uid).set({uid:credential.user.uid,nick:nick,nickLower:nick.toLowerCase(),bio:"",interests:"",favorites:"",mood:"",photo:"",updatedAt:firebase.firestore.FieldValue.serverTimestamp()}),6000)}catch(e){status("Аккаунт создан и вход выполнен, но профиль пока не сохранился в базе: "+errorText(e),"error")}}}else{await timeout(auth.signInWithEmailAndPassword(email,password),12000);status("Ты успешно вошла в LUNA 💗","success")}}catch(e){status(errorText(e),"error")}finally{btn.disabled=false;btn.textContent=mode==="signup"?"Создать аккаунт":"Войти"}}
+async function submitAuth(event){
+  if(event)event.preventDefault();
+  var btn=$("authSubmit");
+  if(!auth){status("Firebase ещё не подключился. Обнови страницу; если сообщение повторится, пришли скриншот.","error");return}
+  var email=$("authEmail").value.trim().toLowerCase(),password=$("authPassword").value,nick=$("authNick").value.trim();
+  if(!email||!password){status("Заполни электронную почту и пароль.","error");return}
+  if(mode==="signup"&&password.length<6){status("Пароль должен содержать минимум 6 символов.","error");return}
+  if(mode==="signup"&&(!validNick(nick)||normalizeNick(nick).length<2)){status("Никнейм должен быть от 2 до 40 символов и не содержать /.","error");return}
+  btn.disabled=true;btn.textContent=mode==="signup"?"Создаём аккаунт…":"Входим…";status("Отправляем запрос Firebase…");
+  try{
+    if(mode==="signup"){
+      var credential=await timeout(auth.createUserWithEmailAndPassword(email,password),12000);
+      if(nick)try{await timeout(credential.user.updateProfile({displayName:nick}),8000)}catch(ignore){}
+      try{localStorage.setItem("luna_profile_"+credential.user.uid,JSON.stringify({nick:nick}))}catch(ignore){}var ready=await ensureProfileDoc(credential.user,nick);
+      try{await timeout(credential.user.sendEmailVerification(),8000)}catch(ignore){}
+      status(ready?"Аккаунт создан, профиль готов — можно искать подруг 💗":"Аккаунт создан. Заверши настройку никнейма в профиле, чтобы подруги могли тебя найти.","success")
+    }else{
+      await timeout(auth.signInWithEmailAndPassword(email,password),12000);
+      status("Ты успешно вошла в LUNA 💗","success")
+    }
+  }catch(e){status(errorText(e),"error")}
+  finally{btn.disabled=false;btn.textContent=mode==="signup"?"Создать аккаунт":"Войти"}
+}
 async function resetPassword(){if(!auth){status("Firebase ещё не подключился.","error");return}var email=$("authEmail").value.trim();if(!email){status("Сначала введи электронную почту.","error");return}try{await timeout(auth.sendPasswordResetEmail(email),12000);status("Если аккаунт с этой почтой существует, письмо для сброса пароля отправлено.","success")}catch(e){status(errorText(e),"error")}}
 function localProfileKey(){return user?"luna_profile_"+user.uid:null}
 function loadProfile(){if(!user)return;var p={};try{p=JSON.parse(localStorage.getItem(localProfileKey())||"{}")}catch(e){}$("nick").value=user.displayName||p.nick||"";$("bio").value=p.bio||"";$("interests").value=p.interests||"";$("favorites").value=p.favorites||"";$("mood").value=p.mood||"";photoData=p.photo||user.photoURL||"";removePhoto=false;drawPhoto();if(db)profileRef(user.uid).get().then(function(snap){if(!snap.exists||!user)return;var remote=snap.data();if(remote.nick)$("nick").value=remote.nick;if(remote.bio)$("bio").value=remote.bio;if(remote.interests)$("interests").value=remote.interests;if(remote.favorites)$("favorites").value=remote.favorites;if(remote.mood)$("mood").value=remote.mood;if(remote.photo){photoData=remote.photo;drawPhoto()}try{localStorage.setItem(localProfileKey(),JSON.stringify({nick:remote.nick||$("nick").value,bio:remote.bio||$("bio").value,interests:remote.interests||$("interests").value,favorites:remote.favorites||$("favorites").value,mood:remote.mood||$("mood").value,photo:remote.photo||photoData||""}))}catch(e){}}).catch(function(e){status("Не удалось загрузить профиль из базы: "+errorText(e),"error")})}
 function drawPhoto(){var img=$("profilePhotoPreview");if(photoData){img.src=photoData;img.classList.remove("hidden")}else{img.removeAttribute("src");img.classList.add("hidden")}}
 $("profilePhotoInput").addEventListener("change",function(e){var file=e.target.files&&e.target.files[0];if(!file)return;if(!file.type.startsWith("image/")){status("Выбери файл изображения.","error");return}if(file.size>6*1024*1024){status("Фото должно быть меньше 6 МБ.","error");return}var reader=new FileReader();reader.onload=function(){var img=new Image();img.onload=function(){var canvas=document.createElement("canvas"),scale=Math.min(1,500/Math.max(img.width,img.height));canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);photoData=canvas.toDataURL("image/jpeg",.76);removePhoto=false;drawPhoto();status("Фото выбрано. Нажми «Сохранить профиль».","success")};img.onerror=function(){status("Не удалось открыть это изображение.","error")};img.src=reader.result};reader.readAsDataURL(file)});
 $("removePhoto").addEventListener("click",function(){photoData="";removePhoto=true;$("profilePhotoInput").value="";drawPhoto()});
-async function saveProfile(){if(!user){status("Сначала войди в аккаунт.","error");return}var nick=$("nick").value.trim();if(nick.length<2){status("Никнейм должен содержать минимум 2 символа.","error");return}var p={uid:user.uid,nick:nick,nickLower:nick.toLowerCase(),bio:$("bio").value.trim(),interests:$("interests").value.trim(),favorites:$("favorites").value.trim(),mood:$("mood").value,photo:photoData||"",updatedAt:firebase.firestore.FieldValue.serverTimestamp()};try{await timeout(user.updateProfile({displayName:nick}),8000);localStorage.setItem(localProfileKey(),JSON.stringify({nick:p.nick,bio:p.bio,interests:p.interests,favorites:p.favorites,mood:p.mood,photo:p.photo}));if(db)await timeout(db.collection("lunaProfiles").doc(user.uid).set(p,{merge:true}),20000);$("profileGreeting").textContent="Привет, "+nick+" 🌷";status("Профиль сохранён 💗","success");removePhoto=false}catch(e){status("Профиль сохранён на устройстве, но сервер вернул ошибку: "+errorText(e),"error")}}
+async function saveProfile(){
+  if(!user){status("Сначала войди в аккаунт.","error");return}
+  var nick=$("nick").value.trim();
+  if(!validNick(nick)||normalizeNick(nick).length<2){status("Никнейм должен быть от 2 до 40 символов и не содержать /.","error");return}
+  var p={nick:nick,bio:$("bio").value.trim(),interests:$("interests").value.trim(),favorites:$("favorites").value.trim(),mood:$("mood").value,photo:photoData||""};
+  try{
+    await timeout(persistProfileData(user,p),20000);
+    try{await timeout(user.updateProfile({displayName:nick}),8000)}catch(ignore){}
+    localStorage.setItem(localProfileKey(),JSON.stringify({nick:p.nick,bio:p.bio,interests:p.interests,favorites:p.favorites,mood:p.mood,photo:p.photo}));
+    $("profileGreeting").textContent="Привет, "+nick+" 🌷";
+    status("Профиль и никнейм для поиска сохранены 💗","success");
+    removePhoto=false;
+    await loadSocial()
+  }catch(e){status("Не удалось сохранить профиль: "+errorText(e),"error")}
+}
 async function signOut(){if(auth)try{await auth.signOut();status("Ты вышла из аккаунта.")}catch(e){status(errorText(e),"error")}}
 function profileRef(uid){return db.collection("lunaProfiles").doc(uid)}
-async function ensureProfileDoc(){if(!user||!db)return;try{var ref=profileRef(user.uid),snap=await ref.get();if(snap.exists)return;var p={};try{p=JSON.parse(localStorage.getItem(localProfileKey())||"{}")}catch(e){}await ref.set({uid:user.uid,nick:user.displayName||p.nick||"",nickLower:(user.displayName||p.nick||"").toLowerCase(),bio:p.bio||"",interests:p.interests||"",favorites:p.favorites||"",mood:p.mood||"",photo:p.photo||user.photoURL||"",updatedAt:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){status("Вход выполнен, но не удалось подготовить профиль для поиска подруг: "+errorText(e),"error")}}
+function usernameRef(nickLower){return db.collection("lunaUsernames").doc(nickLower)}
+function friendIdFor(uidA,uidB){return [uidA,uidB].sort().join("~")}
+var friendRequestInFlight={};
+function normalizeNick(value){return String(value||"").trim().replace(/^@/,"").normalize("NFKC").toLowerCase()}
+function validNick(value){return String(value||"").trim().length>=2&&String(value||"").trim().length<=40&&!String(value||"").includes("/")&&!String(value||"").includes("\\")}
+async function persistProfileData(account,p){
+  if(!account||!db)throw new Error("Firebase не подключён.");
+  var nick=p.nick.trim(),nickLower=normalizeNick(nick);
+  if(!validNick(nick)||nickLower.length<2||nickLower.length>40||nickLower.includes("/")){var invalid=new Error("Никнейм должен быть от 2 до 40 символов и не содержать /.");invalid.code="luna/invalid-nickname";throw invalid}
+  var profile={uid:account.uid,nick:nick,nickLower:nickLower,bio:String(p.bio||"").trim(),interests:String(p.interests||"").trim(),favorites:String(p.favorites||"").trim(),mood:p.mood||"",photo:p.photo||"",updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  var profileDocument=profileRef(account.uid),nextUsername=usernameRef(nickLower);
+  await db.runTransaction(function(tx){
+    return tx.get(profileDocument).then(function(oldSnap){
+      var old=oldSnap.exists?oldSnap.data():null;
+      var oldUsername=old&&old.nickLower&&old.nickLower!==nickLower&&!String(old.nickLower).includes("/")?usernameRef(old.nickLower):null;
+      var oldUsernameRead=oldUsername?tx.get(oldUsername):Promise.resolve(null);
+      return Promise.all([tx.get(nextUsername),oldUsernameRead]).then(function(reads){
+        var usernameSnap=reads[0],oldUsernameSnap=reads[1];
+        if(usernameSnap.exists&&usernameSnap.data().uid!==account.uid){var taken=new Error("Этот никнейм уже занят. Выбери другой.");taken.code="luna/nickname-taken";throw taken}
+        tx.set(nextUsername,{uid:account.uid,nick:nick,nickLower:nickLower,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+        if(oldUsernameSnap&&oldUsernameSnap.exists&&oldUsernameSnap.data().uid===account.uid)tx.delete(oldUsername);
+        tx.set(profileDocument,profile);
+      })
+    })
+  });
+  return profile;
+}
+async function ensureProfileDoc(account,nicknameOverride){
+  account=account||user;if(!account||!db)return false;
+  try{
+    var remote=await profileRef(account.uid).get(),existing=remote.exists?remote.data():{};
+    var local={};try{local=JSON.parse(localStorage.getItem("luna_profile_"+account.uid)||"{}")}catch(e){}
+    var nick=String(existing.nick||nicknameOverride||account.displayName||local.nick||$("nick").value||"").trim();
+    if(nick.length<2){status("Аккаунт готов. Добавь никнейм в профиле и нажми «Сохранить профиль», чтобы подруги могли тебя найти.","error");return false}
+    var values={nick:nick,bio:existing.bio||local.bio||"",interests:existing.interests||local.interests||"",favorites:existing.favorites||local.favorites||"",mood:existing.mood||local.mood||"",photo:existing.photo||local.photo||account.photoURL||""};
+    await persistProfileData(account,values);
+    if(user&&user.uid===account.uid)$("nick").value=nick;
+    return true
+  }catch(e){status("Не удалось подготовить профиль для поиска: "+errorText(e),"error");return false}
+}
 function socialError(e){return errorText(e)}
-async function loadSocial(){if(!user||!db){socialStatus("friendRequests","Войди в аккаунт и подключи базу Firestore.");socialStatus("friendsList","Войди в аккаунт и подключи базу Firestore.");return}try{var incomingAll=await timeout(db.collection("lunaFriendRequests").where("toUid","==",user.uid).get(),15000);var incoming={docs:incomingAll.docs.filter(function(d){return d.data().status==="pending"}),get empty(){return this.docs.length===0}};$("friendRequests").innerHTML=incoming.empty?"Пока нет новых заявок.":incoming.docs.map(function(d){var x=d.data();return '<div class="post"><b>'+escapeHtml(x.fromNick||"Участница LUNA")+'</b><p>Хочет добавить тебя в друзья</p><button class="btn accept-request" data-id="'+d.id+'">Принять</button> <button class="soft decline-request" data-id="'+d.id+'">Отклонить</button></div>'}).join("");var fs=await db.collection("lunaFriends").where("members","array-contains",user.uid).get();if(fs.empty){$("friendsList").textContent="Пока никого нет — найди подругу по никнейму выше."}else{var ids=[];fs.docs.forEach(function(d){(d.data().members||[]).forEach(function(id){if(id!==user.uid&&ids.indexOf(id)<0)ids.push(id)})});var profiles=await Promise.all(ids.map(function(id){return profileRef(id).get()}));$("friendsList").innerHTML=profiles.filter(function(d){return d.exists}).map(function(d){var x=d.data();return '<div class="post"><b>'+escapeHtml(x.nick||"Лунная девочка")+'</b><p>'+escapeHtml(x.interests||x.bio||"Участница LUNA")+'</p><button class="btn open-chat" data-uid="'+escapeHtml(x.uid)+'" data-nick="'+escapeHtml(x.nick||"Подруга")+'">Написать</button></div>'}).join("")||"Список подруг пока пуст."}}catch(e){socialStatus("friendRequests",socialError(e));socialStatus("friendsList",socialError(e))}}
+async function loadSocial(){
+  if(!user||!db){socialStatus("friendRequests","Войди в аккаунт и подключи базу Firestore.");socialStatus("friendsList","Войди в аккаунт и подключи базу Firestore.");return}
+  try{
+    var incoming=await timeout(db.collection("lunaFriendRequests").where("toUid","==",user.uid).limit(100).get(),15000);
+    var pending=incoming.docs.filter(function(d){return d.data().status==="pending"});
+    $("friendRequests").innerHTML=pending.length?pending.map(function(d){var x=d.data();return '<div class="post"><b>'+escapeHtml(x.fromNick||"Участница LUNA")+'</b><p>Хочет добавить тебя в друзья</p><button class="btn accept-request" data-id="'+d.id+'">Принять</button> <button class="soft decline-request" data-id="'+d.id+'">Отклонить</button></div>'}).join(""):"Пока нет новых заявок.";
+    var fs=await timeout(db.collection("lunaFriends").where("members","array-contains",user.uid).limit(100).get(),15000);
+    if(fs.empty){$("friendsList").textContent="Пока никого нет — найди подругу по никнейму выше.";return}
+    var ids=[];fs.docs.forEach(function(d){(d.data().members||[]).forEach(function(id){if(id!==user.uid&&ids.indexOf(id)<0)ids.push(id)})});
+    var profiles=await Promise.all(ids.map(function(id){return profileRef(id).get()}));
+    $("friendsList").innerHTML=profiles.filter(function(d){return d.exists}).map(function(d){var x=d.data();return '<div class="post"><b>'+escapeHtml(x.nick||"Лунная девочка")+'</b><p>'+escapeHtml(x.interests||x.bio||"Участница LUNA")+'</p><button class="btn open-chat" data-uid="'+escapeHtml(x.uid||d.id)+'" data-nick="'+escapeHtml(x.nick||"Подруга")+'">Написать</button></div>'}).join("")||"Список подруг пока пуст."
+  }catch(e){socialStatus("friendRequests",socialError(e));socialStatus("friendsList",socialError(e))}
+}
 async function searchFriend(){
   var result=$("friendSearchResult"),button=$("searchFriend");
   if(!result)return;
   if(!user){result.textContent="Сначала войди в аккаунт в разделе «Профиль».";return}
   if(!db){result.textContent="База данных не подключена. Обнови страницу и попробуй снова.";return}
-  var raw=$("friendSearch").value.trim();
-  var nick=raw.replace(/^@/,"").toLowerCase();
-  if(nick.length<2){result.textContent="Введи никнейм целиком (минимум 2 символа).";$("friendSearch").focus();return}
-  button.disabled=true;
-  button.textContent="Ищем…";
-  result.className="muted";
-  result.textContent="Ищем «"+raw+"» среди профилей LUNA…";
+  var raw=$("friendSearch").value.trim(),nickLower=normalizeNick(raw);
+  if(nickLower.length<2||nickLower.length>40||nickLower.includes("/")){result.textContent="Введи точный никнейм длиной от 2 до 40 символов.";return}
+  button.disabled=true;button.textContent="Ищем…";result.className="muted";result.textContent="Ищем «"+raw+"»…";
   try{
-    // First use the normalized index used by current profiles.
-    var snap=await timeout(db.collection("lunaProfiles").where("nickLower","==",nick).limit(20).get(),20000);
-    var docs=snap.docs.slice();
-    // Older profiles may not have nickLower. Check visible profile records as a fallback.
-    if(docs.length===0){
-      var all=await timeout(db.collection("lunaProfiles").limit(200).get(),20000);
-      docs=all.docs.filter(function(d){
-        var x=d.data()||{};
-        return String(x.nickLower||x.nick||"").trim().replace(/^@/,"").toLowerCase()===nick;
-      });
-    }
-    docs=docs.filter(function(d){return d.id!==user.uid && (d.data().uid||d.id)!==user.uid});
-    if(!docs.length){
-      result.textContent="Не нашли профиль с никнеймом «"+raw+"». Проверь написание. Если это другой аккаунт, его владелице нужно войти в него и нажать «Сохранить профиль».";
-      return;
-    }
-    result.innerHTML=docs.map(function(d){
-      var x=d.data()||{};
-      var targetUid=x.uid||d.id;
-      return '<div class="post"><b>'+escapeHtml(x.nick||"Участница LUNA")+'</b><p>'+escapeHtml(x.bio||x.interests||"Участница LUNA")+'</p><button type="button" class="btn add-friend" data-uid="'+escapeHtml(targetUid)+'" data-nick="'+escapeHtml(x.nick||"Подруга")+'">＋ Добавить в друзья</button></div>';
-    }).join("");
-  }catch(e){
-    result.className="status error";
-    result.textContent="Не удалось найти профиль: "+socialError(e)+(e&&e.code==="permission-denied"?" Открой Firebase Console → Firestore Database → Rules: правила должны разрешать авторизованным пользователям читать профили.":"");
-  }finally{
-    button.disabled=false;
-    button.textContent="Найти";
-  }
+    var snap=await timeout(usernameRef(nickLower).get(),15000);
+    if(!snap.exists){result.textContent="Никнейм «"+raw+"» не найден. Попроси подругу войти в LUNA и сохранить профиль, чтобы она появилась в поиске.";return}
+    var x=snap.data(),targetUid=x.uid||"";
+    if(!targetUid){result.textContent="У этого профиля пока не завершена настройка поиска. Попроси владелицу сохранить профиль.";return}
+    if(targetUid===user.uid){result.textContent="Это твой никнейм 🙂";return}
+    var friendId=friendIdFor(user.uid,targetUid);
+    var friend=await timeout(db.collection("lunaFriends").doc(friendId).get(),10000);
+    var action=friend.exists?'<button type="button" class="soft" disabled>Вы уже подруги 💗</button>':'<button type="button" class="btn add-friend" data-uid="'+escapeHtml(targetUid)+'" data-nick="'+escapeHtml(x.nick||raw)+'" data-nick-lower="'+escapeHtml(nickLower)+'">＋ Добавить в друзья</button>';
+    result.innerHTML='<div class="post"><b>'+escapeHtml(x.nick||raw)+'</b><p class="muted">Участница LUNA</p>'+action+'</div>';
+  }catch(e){result.className="status error";result.textContent="Не удалось найти никнейм: "+socialError(e)}
+  finally{button.disabled=false;button.textContent="Найти"}
 }
-async function sendRequest(uid,nick){if(!user||!db||uid===user.uid)return;try{var oldAll=await timeout(db.collection("lunaFriendRequests").where("fromUid","==",user.uid).where("toUid","==",uid).get(),15000);var old={empty:!oldAll.docs.some(function(d){return d.data().status==="pending"})};if(!old.empty){socialStatus("friendSearchResult","Заявка уже отправлена 💗");return}var my=await profileRef(user.uid).get(),myNick=my.exists?my.data().nick:(user.displayName||"Участница");await db.collection("lunaFriendRequests").add({fromUid:user.uid,toUid:uid,fromNick:myNick,toNick:nick,status:"pending",createdAt:firebase.firestore.FieldValue.serverTimestamp()});socialStatus("friendSearchResult","Заявка отправлена! 💌")}catch(e){socialStatus("friendSearchResult",socialError(e))}}
-async function acceptRequest(id,accept){if(!user||!db)return;try{var ref=db.collection("lunaFriendRequests").doc(id),snap=await ref.get();if(!snap.exists||snap.data().toUid!==user.uid)return;var x=snap.data();await ref.update({status:accept?"accepted":"declined"});if(accept){var members=[x.fromUid,x.toUid].sort();await db.collection("lunaFriends").doc(members.join("_")).set({members:members,requestId:id,createdAt:firebase.firestore.FieldValue.serverTimestamp()})}await loadSocial()}catch(e){socialStatus("friendRequests",socialError(e))}}
-async function openChat(uid,nick){if(!user||!db)return;if(chatUnsub){chatUnsub();chatUnsub=null}activeChatUid=uid;$("chatEmpty").classList.add("hidden");$("chatPanel").classList.remove("hidden");$("chatWith").textContent="Чат с "+nick+" 💗";$("chatMessages").textContent="Загружаем сообщения…";var chatId=[user.uid,uid].sort().join("_");try{var f=await db.collection("lunaFriends").doc(chatId).get();if(!f.exists){$("chatMessages").textContent="Чат доступен только после подтверждения заявки в друзья.";return}await db.collection("lunaChats").doc(chatId).set({members:[user.uid,uid].sort(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});chatUnsub=db.collection("lunaChats").doc(chatId).collection("messages").orderBy("createdAt","asc").limit(100).onSnapshot(function(snap){$("chatMessages").innerHTML=snap.docs.map(function(d){var x=d.data(),mine=x.fromUid===user.uid,time=x.createdAt&&x.createdAt.toDate?x.createdAt.toDate().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"";return '<div class="bubble '+(mine?"mine":"theirs")+'">'+escapeHtml(x.text||"")+'<time>'+time+'</time></div>'}).join("")||'<p class="muted">Напиши первое сообщение ✨</p>';$("chatMessages").scrollTop=$("chatMessages").scrollHeight},function(e){$("chatMessages").textContent=socialError(e)})}catch(e){$("chatMessages").textContent=socialError(e)}}
-async function sendMessage(){if(!user||!db||!activeChatUid)return;var value=$("chatInput").value.trim();if(!value)return;var chatId=[user.uid,activeChatUid].sort().join("_");$("sendMessage").disabled=true;try{await db.collection("lunaChats").doc(chatId).collection("messages").add({fromUid:user.uid,text:value,createdAt:firebase.firestore.FieldValue.serverTimestamp()});$("chatInput").value=""}catch(e){$("chatMessages").textContent=socialError(e)}finally{$("sendMessage").disabled=false}}
+async function sendRequest(uid,nick,nickLower){
+  if(!user||!db||!uid||uid===user.uid||friendRequestInFlight[uid])return;
+  friendRequestInFlight[uid]=true;
+  try{
+    var friendId=friendIdFor(user.uid,uid),friend=await timeout(db.collection("lunaFriends").doc(friendId).get(),10000);
+    if(friend.exists){socialStatus("friendSearchResult","Вы уже подруги 💗");return}
+    var source=await profileRef(user.uid).get();
+    if(!source.exists||!source.data().nick){socialStatus("friendSearchResult","Сначала сохрани свой никнейм в профиле.");return}
+    var target=await usernameRef(nickLower).get();
+    if(!target.exists||target.data().uid!==uid){socialStatus("friendSearchResult","Этот никнейм уже изменился. Найди подругу ещё раз.");return}
+    var requestId=user.uid+"~"+uid,requestRef=db.collection("lunaFriendRequests").doc(requestId);
+    var reverseRef=db.collection("lunaFriendRequests").doc(uid+"~"+user.uid);
+    var reads=await Promise.all([timeout(requestRef.get(),10000),timeout(reverseRef.get(),10000)]);
+    var ownRequest=reads[0],reverseRequest=reads[1];
+    if(ownRequest.exists&&ownRequest.data().status==="pending"){socialStatus("friendSearchResult","Заявка уже отправлена 💌");return}
+    if(reverseRequest.exists&&reverseRequest.data().status==="pending"){socialStatus("friendSearchResult","Эта участница уже отправила тебе заявку. Открой список заявок и нажми «Принять» 💗");await loadSocial();return}
+    var requestData={fromUid:user.uid,toUid:uid,fromNick:source.data().nick,toNick:target.data().nick,toNickLower:nickLower,status:"pending"};
+    if(ownRequest.exists&&ownRequest.data().status==="declined"){
+      await timeout(requestRef.update({fromNick:requestData.fromNick,toNick:requestData.toNick,toNickLower:requestData.toNickLower,status:"pending"}),15000);
+    }else if(ownRequest.exists&&ownRequest.data().status==="accepted"){
+      socialStatus("friendSearchResult","Заявка уже была принята. Обнови список подруг.");return
+    }else{
+      requestData.createdAt=firebase.firestore.FieldValue.serverTimestamp();
+      await timeout(requestRef.set(requestData),15000)
+    }
+    socialStatus("friendSearchResult","Заявка отправлена! 💌")
+  }catch(e){socialStatus("friendSearchResult",socialError(e))}
+  finally{delete friendRequestInFlight[uid]}
+}
+async function acceptRequest(id,accept){
+  if(!user||!db)return;
+  try{
+    await timeout(db.runTransaction(function(tx){
+      var requestRef=db.collection("lunaFriendRequests").doc(id);
+      return tx.get(requestRef).then(function(snap){
+        if(!snap.exists||snap.data().toUid!==user.uid||snap.data().status!=="pending"){var stale=new Error("Заявка уже обработана или недоступна.");stale.code="luna/request-stale";throw stale}
+        var x=snap.data(),members=[x.fromUid,x.toUid].sort(),friendRef=db.collection("lunaFriends").doc(friendIdFor(members[0],members[1]));
+        if(!accept){tx.update(requestRef,{status:"declined"});return}
+        return tx.get(friendRef).then(function(friendSnap){
+          tx.update(requestRef,{status:"accepted"});
+          if(!friendSnap.exists)tx.set(friendRef,{members:members,requestId:id,createdAt:firebase.firestore.FieldValue.serverTimestamp()})
+        })
+      })
+    }),20000);
+    await loadSocial()
+  }catch(e){socialStatus("friendRequests",socialError(e));await loadSocial()}
+}
+
+async function openChat(uid,nick){if(!user||!db)return;if(chatUnsub){chatUnsub();chatUnsub=null}activeChatUid=uid;$("chatEmpty").classList.add("hidden");$("chatPanel").classList.remove("hidden");$("chatWith").textContent="Чат с "+nick+" 💗";$("chatMessages").textContent="Загружаем сообщения…";var chatId=friendIdFor(user.uid,uid);try{var f=await db.collection("lunaFriends").doc(chatId).get();if(!f.exists){$("chatMessages").textContent="Чат доступен только после подтверждения заявки в друзья.";return}await db.collection("lunaChats").doc(chatId).set({members:[user.uid,uid].sort(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});chatUnsub=db.collection("lunaChats").doc(chatId).collection("messages").orderBy("createdAt","asc").limit(100).onSnapshot(function(snap){$("chatMessages").innerHTML=snap.docs.map(function(d){var x=d.data(),mine=x.fromUid===user.uid,time=x.createdAt&&x.createdAt.toDate?x.createdAt.toDate().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"";return '<div class="bubble '+(mine?"mine":"theirs")+'">'+escapeHtml(x.text||"")+'<time>'+time+'</time></div>'}).join("")||'<p class="muted">Напиши первое сообщение ✨</p>';$("chatMessages").scrollTop=$("chatMessages").scrollHeight},function(e){$("chatMessages").textContent=socialError(e)})}catch(e){$("chatMessages").textContent=socialError(e)}}
+async function sendMessage(){if(!user||!db||!activeChatUid)return;var value=$("chatInput").value.trim();if(!value)return;var chatId=friendIdFor(user.uid,activeChatUid);$("sendMessage").disabled=true;try{await db.collection("lunaChats").doc(chatId).collection("messages").add({fromUid:user.uid,text:value,createdAt:firebase.firestore.FieldValue.serverTimestamp()});$("chatInput").value=""}catch(e){$("chatMessages").textContent=socialError(e)}finally{$("sendMessage").disabled=false}}
 var tarot=[["Звезда","Надежда и восстановление. Что помогает тебе снова видеть возможности?","✧"],["Императрица","Забота, творчество и связь со своими потребностями. Где тебе нужно больше нежности?","♛"],["Луна","Неопределённость и внутренний мир. Какие чувства стоит понять?","☾"],["Сила","Мягкая смелость и терпение. Как поддержать себя без давления?","♌"],["Солнце","Ясность, радость и простые удовольствия. Что сегодня сделает день светлее?","☼"],["Отшельник","Пауза и честный разговор с собой. Какой ответ ты уже почти знаешь?","♧"]];
 function drawCard(){var c=tarot[Math.floor(Math.random()*tarot.length)];$("tarotCard").innerHTML="<b>"+c[2]+"</b>"+c[0];$("tarotMeaning").innerHTML="<h2>"+c[0]+"</h2><p>"+c[1]+"</p><p class='muted'>Запиши, что эта мысль значит лично для тебя.</p>"}
 function renderPosts(){var el=$("posts");el.innerHTML=posts.map(function(p,i){return '<div class="post"><div class="muted">'+escapeHtml(p.topic)+'</div><h3>'+escapeHtml(p.title)+'</h3><p>'+escapeHtml(p.body)+'</p><button class="soft like-post" data-index="'+i+'">♡ '+p.likes+'</button></div>'}).join("")||'<p class="muted">Пока нет тем. Начни обсуждение первой ✨</p>'}
@@ -113,7 +243,7 @@ function saveCycle(){periodStart=$("startDate").value;if(!periodStart){$("cycleM
 function renderCalendar(){var y=cycleDate.getFullYear(),m=cycleDate.getMonth(),first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();$("month").textContent=new Date(y,m,1).toLocaleDateString("ru-RU",{month:"long",year:"numeric"});var out=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(function(x){return '<div class="muted">'+x+"</div>"}).join("");for(var i=0;i<(first+6)%7;i++)out+="<div></div>";var now=new Date();for(var d=1;d<=days;d++){var date=y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"),cl=[];if(periodStart&&date>=periodStart&&date<new Date(new Date(periodStart+"T12:00:00").getTime()+5*86400000).toISOString().slice(0,10))cl.push("period");if(d===now.getDate()&&m===now.getMonth()&&y===now.getFullYear())cl.push("today");out+='<div class="'+cl.join(" ")+'">'+d+"</div>"}$("calendar").innerHTML=out}
 document.querySelectorAll("[data-page]").forEach(function(el){el.addEventListener("click",function(){page(el.dataset.page)})});
 $("modeSignup").addEventListener("click",function(){setMode("signup")});$("modeLogin").addEventListener("click",function(){setMode("login")});$("authForm").addEventListener("submit",submitAuth);$("resetPassword").addEventListener("click",resetPassword);$("saveProfile").addEventListener("click",saveProfile);$("signOut").addEventListener("click",signOut);$("searchFriend").addEventListener("click",searchFriend);$("sendMessage").addEventListener("click",sendMessage);$("friendSearch").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();searchFriend()}});$("authEmail").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("authPassword").focus()}});$("publishPost").addEventListener("click",publishPost);$("drawCard").addEventListener("click",drawCard);$("saveCycle").addEventListener("click",saveCycle);$("prevMonth").addEventListener("click",function(){moveMonth(-1)});$("nextMonth").addEventListener("click",function(){moveMonth(1)});$("feedPet").addEventListener("click",function(){petAction("food")});$("playPet").addEventListener("click",function(){petAction("play")});$("sleepPet").addEventListener("click",function(){petAction("sleep")});
-document.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;if(b.classList.contains("add-friend"))sendRequest(b.dataset.uid,b.dataset.nick);if(b.classList.contains("accept-request"))acceptRequest(b.dataset.id,true);if(b.classList.contains("decline-request"))acceptRequest(b.dataset.id,false);if(b.classList.contains("open-chat"))openChat(b.dataset.uid,b.dataset.nick);if(b.classList.contains("like-post")){var p=posts[Number(b.dataset.index)];if(p){p.likes++;renderPosts()}}});
+document.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;if(b.classList.contains("add-friend"))sendRequest(b.dataset.uid,b.dataset.nick,b.dataset.nickLower);if(b.classList.contains("accept-request"))acceptRequest(b.dataset.id,true);if(b.classList.contains("decline-request"))acceptRequest(b.dataset.id,false);if(b.classList.contains("open-chat"))openChat(b.dataset.uid,b.dataset.nick);if(b.classList.contains("like-post")){var p=posts[Number(b.dataset.index)];if(p){p.likes++;renderPosts()}}});
 try{periodStart=localStorage.getItem("luna_cycle_start")||"";$("startDate").value=periodStart}catch(e){}renderCalendar();renderPosts();setMode("signup");init();
 })();
 </script>
