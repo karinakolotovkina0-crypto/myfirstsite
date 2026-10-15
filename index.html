@@ -144,9 +144,9 @@ async function persistProfileData(account,p){
       var oldUsernameRead=oldUsername?tx.get(oldUsername):Promise.resolve(null);
       return Promise.all([tx.get(nextUsername),oldUsernameRead]).then(function(reads){
         var usernameSnap=reads[0],oldUsernameSnap=reads[1];
-        if(usernameSnap.exists&&usernameSnap.data().uid!==account.uid){var taken=new Error("Этот никнейм уже занят. Выбери другой.");taken.code="luna/nickname-taken";throw taken}
+        if(usernameSnap.exists&&(usernameSnap.data()||{}).uid!==account.uid){var taken=new Error("Этот никнейм уже занят. Выбери другой.");taken.code="luna/nickname-taken";throw taken}
         tx.set(nextUsername,{uid:account.uid,nick:nick,nickLower:nickLower,updatedAt:serverTimestamp()});
-        if(oldUsernameSnap&&oldUsernameSnap.exists&&oldUsernameSnap.data().uid===account.uid)tx.delete(oldUsername);
+        if(oldUsernameSnap&&oldUsernameSnap.exists&&(oldUsernameSnap.data()||{}).uid===account.uid)tx.delete(oldUsername);
         tx.set(profileDocument,profile);
       })
     })
