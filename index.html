@@ -314,7 +314,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   initializeFirestore, collection as fsCollection, doc as fsDoc,
-  query as fsQuery, where as fsWhere, limit as fsLimit, orderBy as fsOrderBy,
+  query as fsQuery, where as fsWhere, limit as fsLimit, orderBy as fsOrderBy, startAfter as fsStartAfter,
   getDoc as fsGetDoc, getDocs as fsGetDocs, setDoc as fsSetDoc,
   updateDoc as fsUpdateDoc, deleteDoc as fsDeleteDoc, addDoc as fsAddDoc,
   onSnapshot as fsOnSnapshot, runTransaction as fsRunTransaction,
@@ -323,16 +323,16 @@ import {
 (function(){
 "use strict";
 var firebaseConfig={apiKey:"AIzaSyDvb-FYk1-osvvQtFwuv8kPPRBgBJJU9EQ",authDomain:"luna-a9fa5.firebaseapp.com",projectId:"luna-a9fa5",storageBucket:"luna-a9fa5.firebasestorage.app",messagingSenderId:"168033013342",appId:"1:168033013342:web:d2d948a3bd93f5cbd6eecf",measurementId:"G-06FRESS07P"};
-var firebaseApp=null,auth=null,db=null,user=null,mode="signup",activeChatUid=null,activeRoomId=null,activeRoom=null,chatUnsub=null,photoData="",removePhoto=false,posts=[],cycleDate=new Date(),periodStart="",pet={food:70,happy:70,energy:70},chatContacts=[],roomChats=[],pendingRoomInvites=[];
+var firebaseApp=null,auth=null,db=null,user=null,mode="signup",activeChatUid=null,activeRoomId=null,activeRoom=null,chatUnsub=null,photoData="",removePhoto=false,posts=[],cycleDate=new Date(),periodStart="",pet={food:70,happy:70,energy:70},chatContacts=[],roomChats=[],pendingRoomInvites=[],newestMessageDocs=[],olderMessageDocs=[],messageViewToken=0,loadingOlderMessages=false,hasOlderMessages=true;
 function $(id){return document.getElementById(id)}
 function status(message,type){var el=$("authStatus");if(el){el.textContent=message;el.className="status"+(type?" "+type:"");}}
 function socialStatus(id,message){var el=$(id);if(el)el.textContent=message;}
 function escapeHtml(value){return String(value==null?"":value).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 
-function wrapDocSnapshot(s){return {id:s.id,exists:s.exists(),data:function(){return s.data()},get:function(field){return s.get(field)}}}
+function wrapDocSnapshot(s){return {_ref:s.ref,id:s.id,exists:s.exists(),data:function(){return s.data()},get:function(field){return s.get(field)}}}
 function wrapQuerySnapshot(s){return {docs:s.docs.map(wrapDocSnapshot),empty:s.empty,size:s.size,forEach:function(fn){s.forEach(function(d){fn(wrapDocSnapshot(d))})}}}
 function wrapDocument(ref){return {_ref:ref,id:ref.id,get:function(){return fsGetDoc(ref).then(wrapDocSnapshot)},set:function(data,options){return options?fsSetDoc(ref,data,options):fsSetDoc(ref,data)},update:function(data){return fsUpdateDoc(ref,data)},delete:function(){return fsDeleteDoc(ref)},collection:function(name){return wrapCollection(fsCollection(ref,name))},onSnapshot:function(next,error){return fsOnSnapshot(ref,function(s){next(wrapDocSnapshot(s))},error)}}}
-function wrapQuery(ref){return {where:function(field,op,value){return wrapQuery(fsQuery(ref,fsWhere(field,op,value)))},limit:function(count){return wrapQuery(fsQuery(ref,fsLimit(count)))},orderBy:function(field,direction){return wrapQuery(fsQuery(ref,fsOrderBy(field,direction)))},get:function(){return fsGetDocs(ref).then(wrapQuerySnapshot)},onSnapshot:function(next,error){return fsOnSnapshot(ref,function(s){next(wrapQuerySnapshot(s))},error)}}}
+function wrapQuery(ref){return {where:function(field,op,value){return wrapQuery(fsQuery(ref,fsWhere(field,op,value)))},limit:function(count){return wrapQuery(fsQuery(ref,fsLimit(count)))},orderBy:function(field,direction){return wrapQuery(fsQuery(ref,fsOrderBy(field,direction)))},startAfter:function(snapshot){return wrapQuery(fsQuery(ref,fsStartAfter(snapshot._ref)))},get:function(){return fsGetDocs(ref).then(wrapQuerySnapshot)},onSnapshot:function(next,error){return fsOnSnapshot(ref,function(s){next(wrapQuerySnapshot(s))},error)}}}
 function wrapCollection(ref){var q=wrapQuery(ref);q.doc=function(id){return wrapDocument(fsDoc(ref,id))};q.add=function(data){return fsAddDoc(ref,data).then(wrapDocument)};return q}
 function makeFirestoreFacade(instance){return {collection:function(path){return wrapCollection(fsCollection(instance,path))},runTransaction:function(callback){return fsRunTransaction(instance,function(tx){var compatTx={get:function(ref){return tx.get(ref._ref).then(wrapDocSnapshot)},set:function(ref,data,options){if(options)tx.set(ref._ref,data,options);else tx.set(ref._ref,data);return this},update:function(ref,data){tx.update(ref._ref,data);return this},delete:function(ref){tx.delete(ref._ref);return this}};return callback(compatTx)})}}}
 function timeout(promise,ms){var timer;return Promise.race([promise,new Promise(function(_,reject){timer=setTimeout(function(){var e=new Error("Запрос к Firestore не завершился за "+Math.round(ms/1000)+" секунд. Это может быть интернет, ограничения API-ключа или настройки Firestore.");e.code="luna/timeout";reject(e)},ms)})]).finally(function(){clearTimeout(timer)})}
@@ -358,7 +358,7 @@ function showUser(u){
     status("Войди или создай аккаунт, чтобы начать.")
   }
 }
-function init(){try{firebaseApp=initializeApp(firebaseConfig);auth=getAuth(firebaseApp);db=makeFirestoreFacade(initializeFirestore(firebaseApp,{experimentalForceLongPolling:true},"default"));setPersistence(auth,browserLocalPersistence).catch(function(){});onAuthStateChanged(auth,showUser,function(e){status(errorText(e),"error")});status("Firebase подключён. Можно создать аккаунт или войти.","success")}catch(e){status("Не удалось запустить Firebase: "+e.message,"error")}}
+function init(){$("chatMessages").addEventListener("scroll",function(){if(this.scrollTop<48)loadOlderMessages()},{passive:true});try{firebaseApp=initializeApp(firebaseConfig);auth=getAuth(firebaseApp);db=makeFirestoreFacade(initializeFirestore(firebaseApp,{experimentalForceLongPolling:true},"default"));setPersistence(auth,browserLocalPersistence).catch(function(){});onAuthStateChanged(auth,showUser,function(e){status(errorText(e),"error")});status("Firebase подключён. Можно создать аккаунт или войти.","success")}catch(e){status("Не удалось запустить Firebase: "+e.message,"error")}}
 async function submitAuth(event){
   if(event)event.preventDefault();
   var btn=$("authSubmit");
@@ -719,20 +719,61 @@ async function handleRoomInvite(id,accept){
     await loadRooms()
   }catch(e){socialStatus("roomFormStatus",socialError(e));await loadRooms()}
 }
-function renderRoomMessages(snap,room){
-  var el=$("chatMessages");
-  var wasNearBottom=(el.scrollHeight-el.scrollTop-el.clientHeight)<72;
+function resetMessageHistory(){
+  messageViewToken++;newestMessageDocs=[];olderMessageDocs=[];loadingOlderMessages=false;hasOlderMessages=true;
+}
+function renderRoomMessages(snap,room,options){
+  var el=$("chatMessages"),opts=options||{},oldScrollHeight=el.scrollHeight,oldScrollTop=el.scrollTop;
+  var wasNearBottom=(oldScrollHeight-oldScrollTop-el.clientHeight)<72;
   el.innerHTML=snap.docs.slice().reverse().map(function(d){
     var x=d.data(),mine=x.fromUid===user.uid,time=x.createdAt&&x.createdAt.toDate?x.createdAt.toDate().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"",imageMarkup=safeChatImage(x.image),sticker=isStickerMessage(x.text);
     var sender=mine?{photo:photoData||user.photoURL||"",nick:$("nick").value||user.displayName||"Ты"}:(chatContacts.find(function(contact){return contact.uid===x.fromUid})||{photo:"",nick:x.nick||"Участница"});
-    var name=sender.nick|| (mine?"Ты":(room?"Участница":"Подруга"));
+    var name=sender.nick||(mine?"Ты":(room?"Участница":"Подруга"));
     return '<div class="message-line '+(mine?"mine":"theirs")+'">'+avatarMarkup(sender.photo,name,"message-avatar")+'<div class="bubble '+(mine?"mine":"theirs")+(sticker||imageMarkup?" visual-bubble":"")+'">'+(imageMarkup?'<img class="chat-photo" src="'+escapeHtml(imageMarkup)+'" alt="Фото в чате" loading="lazy">':renderMessageBody(x.text))+'<time>'+escapeHtml(time)+'</time></div></div>'
   }).join("")||'<p class="muted chat-no-messages">Напиши первое сообщение ✨</p>';
-  if(wasNearBottom)el.scrollTop=el.scrollHeight
+  if(opts.preserveAnchor)el.scrollTop=opts.oldScrollTop+(el.scrollHeight-opts.oldScrollHeight);
+  else if(wasNearBottom)el.scrollTop=el.scrollHeight;
+}
+function receiveLatestMessages(snap,room){
+  var incoming=snap.docs,incomingIds=new Set(incoming.map(function(d){return d.id})),el=$("chatMessages");
+  var oldScrollTop=el.scrollTop,oldScrollHeight=el.scrollHeight,preserveAnchor=false;
+  if(olderMessageDocs.length){
+    var alreadyLoaded=new Set(olderMessageDocs.map(function(d){return d.id}));
+    var dropped=newestMessageDocs.filter(function(d){return !incomingIds.has(d.id)&&!alreadyLoaded.has(d.id)});
+    if(dropped.length){
+      olderMessageDocs=dropped.concat(olderMessageDocs);
+      preserveAnchor=(oldScrollHeight-oldScrollTop-el.clientHeight)>=72;
+    }
+  }
+  newestMessageDocs=incoming;
+  if(!olderMessageDocs.length)hasOlderMessages=incoming.length===100;
+  renderRoomMessages({docs:newestMessageDocs.concat(olderMessageDocs)},room,preserveAnchor?{preserveAnchor:true,oldScrollTop:oldScrollTop,oldScrollHeight:oldScrollHeight}:null);
+}
+function messageCollection(){
+  return activeRoomId
+    ?db.collection("lunaRooms").doc(activeRoomId).collection("messages")
+    :db.collection("lunaChats").doc(friendIdFor(user.uid,activeChatUid)).collection("messages");
+}
+async function loadOlderMessages(){
+  if(!user||!db||loadingOlderMessages||!hasOlderMessages)return;
+  var cursor=olderMessageDocs.length?olderMessageDocs[olderMessageDocs.length-1]:newestMessageDocs[newestMessageDocs.length-1];
+  if(!cursor)return;
+  var token=messageViewToken;loadingOlderMessages=true;
+  try{
+    var older=await messageCollection().orderBy("createdAt","desc").startAfter(cursor).limit(100).get();
+    if(token!==messageViewToken)return;
+    var el=$("chatMessages"),oldScrollTop=el.scrollTop,oldScrollHeight=el.scrollHeight;
+    olderMessageDocs=olderMessageDocs.concat(older.docs);
+    hasOlderMessages=older.size===100;
+    renderRoomMessages({docs:newestMessageDocs.concat(olderMessageDocs)},activeRoom,{preserveAnchor:true,oldScrollTop:oldScrollTop,oldScrollHeight:oldScrollHeight});
+  }catch(e){
+    if(token===messageViewToken)$("chatMessages").insertAdjacentHTML("afterbegin",'<p class="status error" role="status">'+escapeHtml("Не удалось загрузить предыдущие сообщения: "+socialError(e))+'</p>');
+  }finally{if(token===messageViewToken)loadingOlderMessages=false}
 }
 async function openRoom(id){
   if(!user||!db||!id)return;
   if(chatUnsub){chatUnsub();chatUnsub=null}
+  activeRoom=null;resetMessageHistory();var viewToken=messageViewToken;
   activeRoomId=id;activeChatUid=null;page("chat");renderChatList();
   $("chatEmpty").classList.add("hidden");$("chatPanel").classList.remove("hidden");
   $("chatMessages").textContent="Загружаем сообщения…";
@@ -744,12 +785,13 @@ async function openRoom(id){
     var canWrite=room.type!=="channel"||room.ownerUid===user.uid;
     $("chatInput").disabled=!canWrite;$("choosePhoto").disabled=!canWrite;$("sendMessage").disabled=!canWrite;
     $("chatInput").placeholder=canWrite?"Напиши сообщение…":"В этом канале публикует только создатель";
-    chatUnsub=db.collection("lunaRooms").doc(id).collection("messages").orderBy("createdAt","desc").limit(100).onSnapshot(function(messages){renderRoomMessages(messages,room)},function(e){$("chatMessages").textContent=socialError(e)})
+    chatUnsub=db.collection("lunaRooms").doc(id).collection("messages").orderBy("createdAt","desc").limit(100).onSnapshot(function(messages){if(viewToken===messageViewToken)receiveLatestMessages(messages,room)},function(e){$("chatMessages").textContent=socialError(e)})
   }catch(e){$("chatMessages").textContent=socialError(e)}
 }
 async function openChat(uid,nick){
   if(!user||!db||!uid)return;
   if(chatUnsub){chatUnsub();chatUnsub=null}
+  resetMessageHistory();var viewToken=messageViewToken;
   activeRoomId=null;activeRoom=null;activeChatUid=uid;page("chat");renderChatList();
   $("chatEmpty").classList.add("hidden");$("chatPanel").classList.remove("hidden");
   var contact=chatContacts.find(function(x){return x.uid===uid})||{uid:uid,nick:nick||"Подруга",photo:""};
@@ -762,7 +804,8 @@ async function openChat(uid,nick){
     if(!friendship.exists){$("chatMessages").textContent="Чат доступен только после подтверждения дружбы.";return}
     await db.collection("lunaChats").doc(chatId).set({members:[user.uid,uid].sort(),updatedAt:serverTimestamp()},{merge:true});
     chatUnsub=db.collection("lunaChats").doc(chatId).collection("messages").orderBy("createdAt","desc").limit(100).onSnapshot(function(snap){
-      var decorated={docs:snap.docs.map(function(d){var x=d.data();if(x.fromUid!==user.uid&&!x.nick){x.nick=contact.nick}return {id:d.id,data:function(){return x}}})};renderRoomMessages(decorated,null)
+      if(viewToken!==messageViewToken)return;
+      receiveLatestMessages(snap,null)
     },function(e){$("chatMessages").textContent=socialError(e)})
   }catch(e){$("chatMessages").textContent=socialError(e)}
 }
