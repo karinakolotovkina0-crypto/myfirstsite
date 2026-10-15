@@ -44,6 +44,11 @@ service cloud.firestore {
         ).data.members;
     }
 
+    function validRoomId(value) {
+      return value is string
+        && value.matches('^room_[A-Fa-f0-9]{32}$');
+    }
+
     function roomPath(roomId) {
       return /databases/$(database)/documents/lunaRooms/$(roomId);
     }
@@ -148,6 +153,7 @@ service cloud.firestore {
 
       // Rooms start with the creator alone. Members join only through verified invitations.
       allow create: if signedIn()
+        && validRoomId(roomId)
         && request.resource.data.keys().hasAll([
           'type', 'title', 'description', 'ownerUid', 'members', 'admins',
           'createdAt', 'updatedAt'
@@ -238,7 +244,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'roomId', 'toUid', 'fromUid', 'status', 'createdAt'
         ])
-        && request.resource.data.roomId is string
+        && validRoomId(request.resource.data.roomId)
         && request.resource.data.roomId.size() > 0
         && validUid(request.resource.data.toUid)
         && request.resource.data.toUid != request.auth.uid
