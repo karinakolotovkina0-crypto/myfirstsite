@@ -236,18 +236,23 @@ async function sendRequest(uid,nick,nickLower){
 async function acceptRequest(id,accept){
   if(!user||!db)return;
   try{
+    var friendRef=null,alreadyFriends=false;
+    if(accept){
+      var requestParts=id.split("~"),otherUid=requestParts[0]===user.uid?requestParts[1]:(requestParts[1]===user.uid?requestParts[0]:"");
+      if(!otherUid){var invalid=new Error("Заявка недоступна.");invalid.code="luna/request-stale";throw invalid}
+      friendRef=db.collection("lunaFriends").doc(friendIdFor(user.uid,otherUid));
+      var friendSnap=await timeout(db.collection("lunaFriends").where("members","array-contains",user.uid).get(),10000);
+      alreadyFriends=friendSnap.docs.some(function(doc){var data=doc.data();return doc.id===friendRef.id&&Array.isArray(data.members)&&data.members.indexOf(otherUid)>=0});
+    }
     await timeout(db.runTransaction(function(tx){
       var requestRef=db.collection("lunaFriendRequests").doc(id);
       return tx.get(requestRef).then(function(snap){
         if(!snap.exists||snap.data().toUid!==user.uid||snap.data().status!=="pending"){var stale=new Error("Заявка уже обработана или недоступна.");stale.code="luna/request-stale";throw stale}
-        var x=snap.data(),members=[x.fromUid,x.toUid].sort(),friendRef=db.collection("lunaFriends").doc(friendIdFor(members[0],members[1]));
         if(!accept){tx.update(requestRef,{status:"declined"});return}
-        var friendQuery=db.collection("lunaFriends").where("members","array-contains",user.uid);
-        return tx.get(friendQuery).then(function(friendSnap){
-          var alreadyFriends=friendSnap.docs.some(function(doc){var data=doc.data();return doc.id===friendRef.id&&Array.isArray(data.members)&&data.members.indexOf(x.fromUid)>=0&&data.members.indexOf(x.toUid)>=0});
-          tx.update(requestRef,{status:"accepted"});
-          if(!alreadyFriends)tx.set(friendRef,{members:members,requestId:id,createdAt:serverTimestamp()})
-        })
+        var x=snap.data(),members=[x.fromUid,x.toUid].sort();
+        if(!friendRef||friendRef.id!==friendIdFor(members[0],members[1])){var mismatch=new Error("Заявка недоступна.");mismatch.code="luna/request-stale";throw mismatch}
+        tx.update(requestRef,{status:"accepted"});
+        if(!alreadyFriends)tx.set(friendRef,{members:members,requestId:id,createdAt:serverTimestamp()})
       })
     }),20000);
     await loadSocial()
