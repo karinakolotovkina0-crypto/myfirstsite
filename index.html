@@ -206,22 +206,24 @@ async function sendRequest(uid,nick,nickLower){
   if(!user||!db||!uid||uid===user.uid||friendRequestInFlight[uid])return;
   friendRequestInFlight[uid]=true;
   try{
-    var friendId=friendIdFor(user.uid,uid),friend=await timeout(db.collection("lunaFriends").doc(friendId).get(),10000);
-    if(friend.exists){socialStatus("friendSearchResult","Вы уже подруги 💗");return}
+    var friendId=friendIdFor(user.uid,uid);
+    var friendQuery=await timeout(db.collection("lunaFriends").where("members","array-contains",user.uid).limit(100).get(),10000);
+    var alreadyFriends=friendQuery.docs.some(function(d){var members=d.data().members||[];return d.id===friendId&&members.indexOf(uid)>=0});
+    if(alreadyFriends){socialStatus("friendSearchResult","Вы уже подруги 💗");return}
     var source=await profileRef(user.uid).get();
     if(!source.exists||!source.data().nick){socialStatus("friendSearchResult","Сначала сохрани свой никнейм в профиле.");return}
     var target=await usernameRef(nickLower).get();
     if(!target.exists||target.data().uid!==uid){socialStatus("friendSearchResult","Этот никнейм уже изменился. Найди подругу ещё раз.");return}
     var requestId=user.uid+"~"+uid,requestRef=db.collection("lunaFriendRequests").doc(requestId);
-    var reverseRef=db.collection("lunaFriendRequests").doc(uid+"~"+user.uid);
-    var reads=await Promise.all([timeout(requestRef.get(),10000),timeout(reverseRef.get(),10000)]);
-    var ownRequest=reads[0],reverseRequest=reads[1];
-    if(ownRequest.exists&&ownRequest.data().status==="pending"){socialStatus("friendSearchResult","Заявка уже отправлена 💌");return}
-    if(reverseRequest.exists&&reverseRequest.data().status==="pending"){socialStatus("friendSearchResult","Эта участница уже отправила тебе заявку. Открой список заявок и нажми «Принять» 💗");await loadSocial();return}
+    var ownQuery=await timeout(db.collection("lunaFriendRequests").where("fromUid","==",user.uid).where("toUid","==",uid).limit(1).get(),10000);
+    var reverseQuery=await timeout(db.collection("lunaFriendRequests").where("fromUid","==",uid).where("toUid","==",user.uid).limit(1).get(),10000);
+    var ownRequest=ownQuery.docs[0]||null,reverseRequest=reverseQuery.docs[0]||null;
+    if(ownRequest&&ownRequest.data().status==="pending"){socialStatus("friendSearchResult","Заявка уже отправлена 💌");return}
+    if(reverseRequest&&reverseRequest.data().status==="pending"){socialStatus("friendSearchResult","Эта участница уже отправила тебе заявку. Открой список заявок и нажми «Принять» 💗");await loadSocial();return}
     var requestData={fromUid:user.uid,toUid:uid,fromNick:source.data().nick,toNick:target.data().nick,toNickLower:nickLower,status:"pending"};
-    if(ownRequest.exists&&ownRequest.data().status==="declined"){
+    if(ownRequest&&ownRequest.data().status==="declined"){
       await timeout(requestRef.update({fromNick:requestData.fromNick,toNick:requestData.toNick,toNickLower:requestData.toNickLower,status:"pending"}),15000);
-    }else if(ownRequest.exists&&ownRequest.data().status==="accepted"){
+    }else if(ownRequest&&ownRequest.data().status==="accepted"){
       socialStatus("friendSearchResult","Заявка уже была принята. Обнови список подруг.");return
     }else{
       requestData.createdAt=serverTimestamp();
