@@ -156,8 +156,8 @@ async function persistProfileData(account,p){
 async function ensureProfileDoc(account,nicknameOverride){
   account=account||user;if(!account||!db)return false;
   try{
-    var remote=await profileRef(account.uid).get(),existing=remote.exists?remote.data():{};
-    var local={};try{local=JSON.parse(localStorage.getItem("luna_profile_"+account.uid)||"{}")}catch(e){}
+    var remote=await profileRef(account.uid).get(),existing=(remote.exists?remote.data():{})||{};
+    var local={};try{local=JSON.parse(localStorage.getItem("luna_profile_"+account.uid)||"{}")||{}}catch(e){}
     var nick=String(existing.nick||nicknameOverride||account.displayName||local.nick||$("nick").value||"").trim();
     if(nick.length<2){status("Аккаунт готов. Добавь никнейм в профиле и нажми «Сохранить профиль», чтобы подруги могли тебя найти.","error");return false}
     var values={nick:nick,bio:existing.bio||local.bio||"",interests:existing.interests||local.interests||"",favorites:existing.favorites||local.favorites||"",mood:existing.mood||local.mood||"",photo:existing.photo||local.photo||account.photoURL||""};
