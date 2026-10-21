@@ -271,6 +271,24 @@ service cloud.firestore {
     }
 
 
+    function communityPostLimitIncremented(uid, communityId, postId) {
+      let path = postLimitPath(uid);
+      let token = communityId + '_' + postId;
+      return existsAfter(path)
+        && getAfter(path).data.updatedAt == request.time
+        && getAfter(path).data.events is list
+        && getAfter(path).data.events.size() >= 1
+        && getAfter(path).data.events.size() <= 10
+        && getAfter(path).data.events[getAfter(path).data.events.size() - 1] == token
+        && (
+          (!exists(path) && getAfter(path).data.windowStart == request.time
+            && getAfter(path).data.events.size() == 1)
+          || (exists(path)
+            && getAfter(path).data.events.size() == get(path).data.events.size() + 1
+            && getAfter(path).data.events.toSet().hasAll(get(path).data.events))
+        );
+    }
+
     function postPath(postId) { return /databases/$(database)/documents/posts/$(postId); }
     function postOwnerPath(postId) { return /databases/$(database)/documents/postOwners/$(postId); }
     function postLikePath(postId, uid) { return /databases/$(database)/documents/posts/$(postId)/likes/$(uid); }
@@ -458,18 +476,6 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friendCount', 'updatedAt']);
     }
 
-    function validAcceptedFriendCount(uid) {
-      let requestPath = /databases/$(database)/documents/lunaFriendRequests/$(uid + '~' + request.auth.uid);
-      return request.auth.uid != uid
-        && existsAfter(requestPath)
-        && getAfter(requestPath).data.fromUid == uid
-        && getAfter(requestPath).data.toUid == request.auth.uid
-        && getAfter(requestPath).data.status == 'accepted'
-        && existsAfter(pairPath(uid, request.auth.uid))
-        && request.resource.data.friendCount == (('friendCount' in resource.data) ? resource.data.friendCount : 0) + 1
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friendCount', 'updatedAt']);
-    }
-
     function validProfile(uid) {
       let d = request.resource.data;
       let usernamePath = /databases/$(database)/documents/lunaUsernames/$(d.nickLower);
@@ -496,7 +502,8 @@ service cloud.firestore {
     function validPrivateProfile() {
       let d = request.resource.data;
       return d.keys().hasAll(['mood', 'favorites', 'updatedAt'])
-        && d.keys().hasOnly(['mood', 'favorites', 'presenceEnabled', 'updatedAt'])
+        && d.keys().hasOnly(['mood', 'favorites', 'presenceEnabled', 'recommendationsEnabled', 'updatedAt'])
+        && (!('recommendationsEnabled' in d) || d.recommendationsEnabled is bool)
         && (!('presenceEnabled' in d) || d.presenceEnabled is bool)
         && d.mood is string
         && d.mood.size() <= 40
@@ -568,7 +575,7 @@ service cloud.firestore {
         && ((request.auth.uid == uid
               && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['friendCount'])
                 || validOwnerFriendCount(uid)))
-          || validAcceptedFriendCount(uid));
+          );
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
@@ -680,7 +687,7 @@ service cloud.firestore {
 
     match /lunaUsernames/{nickLower} {
       allow get: if signedIn();
-      allow list: if false;
+      allow list: if signedIn() && request.query.limit <= 20;
       allow create: if signedIn() && validUsername(nickLower);
       allow update: if signedIn()
         && resource.data.uid == request.auth.uid
@@ -842,10 +849,18 @@ service cloud.firestore {
     }
 
     match /lunaFriendEdges/{uid}/connections/{friendUid} {
-      allow get, list: if signedIn()
+      allow get: if signedIn()
         && (request.auth.uid == uid
           || (isFriend(uid)
-            && get(/databases/$(database)/documents/lunaProfiles/$(uid)).data.visibility == 'public'));
+            && get(/databases/$(database)/documents/lunaProfiles/$(uid)).data.visibility == 'public'
+            && exists(/databases/$(database)/documents/lunaPrivateProfiles/$(uid))
+            && get(/databases/$(database)/documents/lunaPrivateProfiles/$(uid)).data.recommendationsEnabled == true));
+      allow list: if signedIn() && request.query.limit <= 50
+        && (request.auth.uid == uid
+          || (isFriend(uid)
+            && get(/databases/$(database)/documents/lunaProfiles/$(uid)).data.visibility == 'public'
+            && exists(/databases/$(database)/documents/lunaPrivateProfiles/$(uid))
+            && get(/databases/$(database)/documents/lunaPrivateProfiles/$(uid)).data.recommendationsEnabled == true));
       allow create, update: if signedIn()
         && request.auth.uid == uid
         && friendUid != uid
@@ -1135,8 +1150,68 @@ service cloud.firestore {
     match /lunaInterestCommunities/{communityId} {
       allow get: if signedIn();
       allow list: if signedIn() && request.query.limit <= 50;
-      allow create: if signedIn()
-        && communityId.matches('^ic_[A-Fa-f0-9]{32}$')
+      allow create: if verified()
+        && communityId.matches('^ic_[A-Fa-f0-9]{32}
+        && request.resource.data.keys().hasAll(['ownerUid','title','interest','description','createdAt','updatedAt'])
+        && request.resource.data.keys().hasOnly(['ownerUid','title','interest','description','createdAt','updatedAt'])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.title is string && request.resource.data.title.size() >= 2 && request.resource.data.title.size() <= 50
+        && request.resource.data.interest is string && request.resource.data.interest.size() >= 2 && request.resource.data.interest.size() <= 40
+        && request.resource.data.description is string && request.resource.data.description.size() <= 240
+        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time
+        && existsAfter(communityMemberPath(communityId, request.auth.uid))
+        && getAfter(communityMemberPath(communityId, request.auth.uid)).data.role == 'owner';
+      allow update: if signedIn()
+        && get(communityMemberPath(communityId, request.auth.uid)).data.role == 'owner'
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','interest','description','updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() >= 2 && request.resource.data.title.size() <= 50
+        && request.resource.data.interest is string && request.resource.data.interest.size() >= 2 && request.resource.data.interest.size() <= 40
+        && request.resource.data.description is string && request.resource.data.description.size() <= 240
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+
+      match /members/{uid} {
+        allow get: if signedIn() && (request.auth.uid == uid || isCommunityMember(communityId));
+        allow list: if isCommunityMember(communityId) && request.query.limit <= 100;
+        allow create: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasAll(['uid','role','joinedAt'])
+          && request.resource.data.keys().hasOnly(['uid','role','joinedAt'])
+          && request.resource.data.uid == uid && request.resource.data.joinedAt == request.time
+          && ((request.resource.data.role == 'owner'
+              && getAfter(communityPath(communityId)).data.ownerUid == uid
+              && getAfter(communityPath(communityId)).data.createdAt == request.time)
+            || (request.resource.data.role == 'member' && exists(communityPath(communityId))));
+        allow update: if signedIn() && get(communityPath(communityId)).data.ownerUid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['uid','role','joinedAt'])
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.joinedAt == resource.data.joinedAt
+          && resource.data.role != 'owner' && request.resource.data.role in ['member','moderator'];
+        allow delete: if signedIn() && resource.data.role != 'owner'
+          && (request.auth.uid == uid || get(communityPath(communityId)).data.ownerUid == request.auth.uid);
+      }
+
+      match /posts/{postId} {
+        allow get: if isCommunityMember(communityId);
+        allow list: if isCommunityMember(communityId) && request.query.limit <= 100;
+        allow create: if verified() && isCommunityMember(communityId)
+          && request.resource.data.keys().hasAll(['authorUid','authorNick','text','createdAt'])
+          && request.resource.data.keys().hasOnly(['authorUid','authorNick','text','createdAt'])
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.authorNick == get(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid)).data.nick
+          && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1500
+          && request.resource.data.createdAt == request.time
+          && communityPostLimitIncremented(request.auth.uid, communityId, postId);
+        allow update: if false;
+        allow delete: if isCommunityMember(communityId)
+          && (resource.data.authorUid == request.auth.uid || isCommunityModerator(communityId));
+      }
+    }
+
+  }
+}
+)
         && request.resource.data.keys().hasAll(['ownerUid','title','interest','description','createdAt','updatedAt'])
         && request.resource.data.keys().hasOnly(['ownerUid','title','interest','description','createdAt','updatedAt'])
         && request.resource.data.ownerUid == request.auth.uid
@@ -1185,7 +1260,8 @@ service cloud.firestore {
           && request.resource.data.authorUid == request.auth.uid
           && request.resource.data.authorNick == get(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid)).data.nick
           && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1500
-          && request.resource.data.createdAt == request.time;
+          && request.resource.data.createdAt == request.time
+          && communityPostLimitIncremented(request.auth.uid, communityId, postId);
         allow update: if false;
         allow delete: if isCommunityMember(communityId)
           && (resource.data.authorUid == request.auth.uid || isCommunityModerator(communityId));
