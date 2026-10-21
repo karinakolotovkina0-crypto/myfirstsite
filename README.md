@@ -45,17 +45,17 @@ LUNA — статическое веб-приложение на GitHub Pages. �
 - Режим анонимного комментария не добавлен: анонимность относится только к исходной публикации.
 - Фото профиля поста отображается для подписанного автора как безопасное публичное поле; email, настроение и цикл в посты не копируются.
 
-## Публикация правил
+## Публикация правил и индексов
 
 Из корня репозитория:
 
 ```sh
 npm install --global firebase-tools
 firebase login
-firebase deploy --only firestore:rules
+firebase deploy --only firestore
 ```
 
-Файл `.firebaserc` выбирает `luna-a9fa5`, а `firebase.json` направляет Firebase CLI на `firestore.rules` и составные индексы из `firestore.indexes.json`. Перед публикацией проверь в Firebase Console, что выбран проект **Luna (luna-a9fa5)** и база **default**. Деплой правил не публикует сайт и не меняет документы.
+Файл `.firebaserc` выбирает `luna-a9fa5`, а `firebase.json` направляет Firebase CLI на `firestore.rules` и составные индексы из `firestore.indexes.json`. Команда `firebase deploy --only firestore` отправляет оба Firestore-ресурса (правила и индексы), но не публикует сайт. Перед публикацией проверь в Firebase Console, что выбран проект **Luna (luna-a9fa5)** и база **default**. Деплой правил не публикует сайт и не меняет документы.
 
 ## Известные ограничения
 
