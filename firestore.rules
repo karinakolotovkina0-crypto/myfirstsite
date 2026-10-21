@@ -620,6 +620,71 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
+    match /lunaPrivateProfiles/{uid}/moodEntries/{day} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list: if request.auth != null && request.auth.uid == uid && request.query.limit <= 30;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && day.matches('^20[0-9]{2}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.keys().hasAll(['day','mood','note','updatedAt'])
+        && request.resource.data.keys().hasOnly(['day','mood','note','updatedAt'])
+        && request.resource.data.day == day
+        && request.resource.data.mood in ['😊 Хорошо','✨ Вдохновлённо','😐 Спокойно','😔 Грустно','😣 Тревожно']
+        && request.resource.data.note is string && request.resource.data.note.size() <= 500
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    match /lunaPrivateProfiles/{uid}/wellnessDays/{day} {
+      function validWellnessDay() {
+        let d = request.resource.data;
+        return d.keys().hasAll(['day','water','done','habits','updatedAt'])
+          && d.keys().hasOnly(['day','water','done','habits','updatedAt'])
+          && d.day == day && day.matches('^20[0-9]{2}-[0-9]{2}-[0-9]{2}$')
+          && d.water is int && d.water >= 0 && d.water <= 8
+          && d.done is list && d.done.size() <= 3
+          && d.done.hasOnly(['kind','water','pause'])
+          && d.habits is map
+          && d.habits.keys().hasOnly(['stretch','read','kind'])
+          && d.habits.stretch is bool && d.habits.read is bool && d.habits.kind is bool
+          && d.updatedAt == request.time;
+      }
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update: if request.auth != null && request.auth.uid == uid && validWellnessDay();
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    match /lunaPrivateProfiles/{uid}/gamification/{documentId} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && documentId == 'state'
+        && request.resource.data.keys().hasAll(['lastDate','streakDays','badges','updatedAt'])
+        && request.resource.data.keys().hasOnly(['lastDate','streakDays','badges','updatedAt'])
+        && request.resource.data.lastDate is string
+        && request.resource.data.lastDate.matches('^20[0-9]{2}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.streakDays is int
+        && request.resource.data.streakDays >= 0 && request.resource.data.streakDays <= 36500
+        && request.resource.data.badges is list && request.resource.data.badges.size() <= 30
+        && request.resource.data.badges.hasOnly(['seven_days','five_friends','first_post'])
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    match /lunaPrivateProfiles/{uid}/pet/{documentId} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && documentId == 'state'
+        && request.resource.data.keys().hasAll(['food','happy','energy','inventory','equipped','updatedAt'])
+        && request.resource.data.keys().hasOnly(['food','happy','energy','inventory','equipped','updatedAt'])
+        && request.resource.data.food is int && request.resource.data.food >= 0 && request.resource.data.food <= 100
+        && request.resource.data.happy is int && request.resource.data.happy >= 0 && request.resource.data.happy <= 100
+        && request.resource.data.energy is int && request.resource.data.energy >= 0 && request.resource.data.energy <= 100
+        && request.resource.data.inventory is list && request.resource.data.inventory.size() <= 10
+        && request.resource.data.inventory.hasOnly(['berry','crown','bow'])
+        && request.resource.data.equipped is string
+        && (request.resource.data.equipped == '' || request.resource.data.equipped in request.resource.data.inventory)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
     match /lunaAgeConsents/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || admin());
       allow list: if false;
