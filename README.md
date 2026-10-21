@@ -139,4 +139,4 @@ await admin.auth().setCustomUserClaims(uid, { ...(user.customClaims || {}), admi
 - Добавлены мини-игры «Найди пару» и «Три в ряд», без внешних библиотек.
 - Новые приватные пути: lunaPrivateProfiles/{uid}/moodEntries/{YYYY-MM-DD}, wellnessDays/{YYYY-MM-DD}, gamification/state и pet/state. Правила проверяют владельца, поля, типы и размеры.
 - Из-за статического GitHub Pages прогресс и награды рассчитывает клиент. Без Cloud Functions время и честность наград нельзя подтвердить серверно. Данные остаются приватными.
-- Firebase CLI/эмулятор и подключённое Firebase deployment API в этой среде недоступны. Правила не компилировались эмулятором и не развернуты; перед публикацией проверь их в Rules Emulator/Playground. GitHub Pages не опубликован.
+- Правила Firestore опубликованы через Firebase Console в проекте luna-a9fa5 21 октября 2026 года; консоль приняла новую версию. Firebase Rules Emulator отдельно не запускался. GitHub Pages обновится после объединения PR.
