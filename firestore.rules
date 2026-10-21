@@ -1,15 +1,29 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
+    function admin() {
+      return request.auth != null && request.auth.token.admin == true;
     }
 
-    function validNick(value) {
-      return value is string
-        && value.size() >= 2
-        && value.size() <= 40
-        && value.matches('^[^/]{2,40}$');
+    function moderator() {
+      return request.auth != null
+        && (request.auth.token.admin == true || request.auth.token.moderator == true);
+    }
+
+    function signedIn() {
+      return request.auth != null
+        && (admin() || !exists(/databases/$(database)/documents/lunaBans/$(request.auth.uid)));
+    }
+
+    function ageConsentPath(uid) {
+      return /databases/$(database)/documents/lunaAgeConsents/$(uid);
+    }
+
+    function verified() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && exists(ageConsentPath(request.auth.uid))
+        && get(ageConsentPath(request.auth.uid)).data.age14 == true;
     }
 
     function validUid(value) {
@@ -17,6 +31,13 @@ service cloud.firestore {
         && value.size() > 0
         && value.size() <= 128
         && value.matches('^[A-Za-z0-9_-]{1,128}$');
+    }
+
+    function validNick(value) {
+      return value is string
+        && value.size() >= 2
+        && value.size() <= 40
+        && value.matches('^[^/]{2,40}$');
     }
 
     function pairId(uidA, uidB) {
@@ -29,24 +50,48 @@ service cloud.firestore {
 
     function isFriend(uid) {
       return signedIn()
-        && uid is string
+        && validUid(uid)
         && uid != request.auth.uid
         && exists(pairPath(request.auth.uid, uid))
         && request.auth.uid in get(pairPath(request.auth.uid, uid)).data.members
         && uid in get(pairPath(request.auth.uid, uid)).data.members;
     }
 
+    function blockPath(ownerUid, blockedUid) {
+      return /databases/$(database)/documents/lunaBlocks/$(ownerUid)/users/$(blockedUid);
+    }
+
+    function isBlockedBetween(uidA, uidB) {
+      return exists(blockPath(uidA, uidB)) || exists(blockPath(uidB, uidA));
+    }
+
     function isChatMember(chatId) {
+      let friendPath = /databases/$(database)/documents/lunaFriends/$(chatId);
+      let members = get(friendPath).data.members;
       return signedIn()
-        && exists(/databases/$(database)/documents/lunaFriends/$(chatId))
-        && request.auth.uid in get(
-          /databases/$(database)/documents/lunaFriends/$(chatId)
-        ).data.members;
+        && exists(friendPath)
+        && request.auth.uid in members
+        && members.size() == 2
+        && !isBlockedBetween(members[0], members[1]);
+    }
+
+
+    function communityPath(id) {
+      return /databases/$(database)/documents/lunaInterestCommunities/$(id);
+    }
+    function communityMemberPath(id, uid) {
+      return /databases/$(database)/documents/lunaInterestCommunities/$(id)/members/$(uid);
+    }
+    function isCommunityMember(id) {
+      return signedIn() && exists(communityMemberPath(id, request.auth.uid));
+    }
+    function isCommunityModerator(id) {
+      return isCommunityMember(id)
+        && get(communityMemberPath(id, request.auth.uid)).data.role in ['owner', 'moderator'];
     }
 
     function validRoomId(value) {
-      return value is string
-        && value.matches('^room_[A-Fa-f0-9]{32}$');
+      return value is string && value.matches('^room_[A-Fa-f0-9]{32}$');
     }
 
     function roomPath(roomId) {
@@ -58,36 +103,414 @@ service cloud.firestore {
     }
 
     function isRoomMember(roomId) {
+      let path = roomPath(roomId);
       return signedIn()
-        && exists(roomPath(roomId))
-        && request.auth.uid in get(roomPath(roomId)).data.members;
+        && exists(path)
+        && request.auth.uid in get(path).data.members;
     }
 
     function canReadRoom(roomId) {
-      let invitePath = roomInvitePath(roomId, request.auth.uid);
       return isRoomMember(roomId)
-        || (signedIn() && exists(invitePath)
-          && get(invitePath).data.status == 'pending');
+        || (signedIn()
+          && exists(roomInvitePath(roomId, request.auth.uid))
+          && get(roomInvitePath(roomId, request.auth.uid)).data.status == 'pending');
     }
 
-    function validRoomMessage(roomId) {
+    function friendLimitPath(uid) {
+      return /databases/$(database)/documents/lunaFriendRequestLimits/$(uid);
+    }
+
+    function postLimitPath(uid) {
+      return /databases/$(database)/documents/lunaPostLimits/$(uid);
+    }
+
+    function validFriendEventToken(value) {
+      return value is string
+        && value.size() <= 165
+        && value.matches('^[A-Za-z0-9_-]{1,128}~[A-Fa-f0-9-]{36}$');
+    }
+
+    function validFriendLimitCreate(uid) {
       let d = request.resource.data;
-      let room = get(roomPath(roomId)).data;
-      return d.keys().hasAll(['fromUid', 'text', 'createdAt'])
-        && d.keys().hasOnly(['fromUid', 'text', 'createdAt', 'image'])
-        && d.fromUid == request.auth.uid
+      return verified()
+        && request.auth.uid == uid
+        && d.keys().hasAll(['windowStart', 'events', 'updatedAt'])
+        && d.keys().hasOnly(['windowStart', 'events', 'updatedAt'])
+        && d.windowStart is timestamp
+        && d.windowStart == request.time
+        && d.events is list
+        && d.events.size() == 1
+        && validFriendEventToken(d.events[0])
+        && d.updatedAt is timestamp
+        && d.updatedAt == request.time;
+    }
+
+    function validFriendLimitUpdate(uid) {
+      let old = resource.data;
+      let d = request.resource.data;
+      return verified()
+        && request.auth.uid == uid
+        && old.keys().hasOnly(['windowStart', 'events', 'updatedAt'])
+        && d.keys().hasAll(['windowStart', 'events', 'updatedAt'])
+        && d.keys().hasOnly(['windowStart', 'events', 'updatedAt'])
+        && old.windowStart is timestamp
+        && old.events is list
+        && old.events.size() >= 1
+        && old.events.size() <= 5
+        && d.windowStart is timestamp
+        && d.events is list
+        && d.events.size() >= 1
+        && d.events.size() <= 5
+        && d.events.toSet().size() == d.events.size()
+        && validFriendEventToken(d.events[d.events.size() - 1])
+        && d.updatedAt is timestamp
+        && d.updatedAt == request.time
+        && d.diff(old).affectedKeys().hasOnly(['windowStart', 'events', 'updatedAt'])
         && (
-          (!d.keys().hasAny(['image'])
-            && d.text is string && d.text.size() > 0 && d.text.size() <= 2000)
-          || (d.keys().hasAny(['image'])
-            && d.image is string && d.image.size() > 0
-            && d.image.size() <= 700000
-            && d.image.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$')
-            && d.text == '')
-        )
-        && d.createdAt is timestamp
-        && d.createdAt == request.time
-        && (room.type == 'group' || request.auth.uid == room.ownerUid);
+          (
+            old.windowStart > request.time - duration.value(1, 'h')
+            && old.events.size() < 5
+            && d.windowStart == old.windowStart
+            && d.events.size() == old.events.size() + 1
+            && d.events.toSet().hasAll(old.events)
+          )
+          || (
+            old.windowStart <= request.time - duration.value(1, 'h')
+            && d.windowStart == request.time
+            && d.events.size() == 1
+          )
+        );
+    }
+
+    function friendLimitIncremented(uid, eventToken) {
+      let path = friendLimitPath(uid);
+      return existsAfter(path)
+        && getAfter(path).data.updatedAt == request.time
+        && getAfter(path).data.events is list
+        && getAfter(path).data.events.size() >= 1
+        && getAfter(path).data.events[getAfter(path).data.events.size() - 1] == eventToken
+        && (
+          (!exists(path)
+            && getAfter(path).data.windowStart == request.time
+            && getAfter(path).data.events.size() == 1)
+          || (exists(path)
+            && getAfter(path).data.events.size() == get(path).data.events.size() + 1
+            && getAfter(path).data.events.toSet().hasAll(get(path).data.events))
+        );
+    }
+
+    function validPostLimitCreate(uid) {
+      let d = request.resource.data;
+      return verified()
+        && request.auth.uid == uid
+        && d.keys().hasAll(['windowStart', 'events', 'updatedAt'])
+        && d.keys().hasOnly(['windowStart', 'events', 'updatedAt'])
+        && d.windowStart is timestamp
+        && d.windowStart == request.time
+        && d.events is list
+        && d.events.size() == 1
+        && d.events[0] is string
+        && d.events[0].matches('^[A-Za-z0-9_-]{1,128}$')
+        && d.updatedAt is timestamp
+        && d.updatedAt == request.time;
+    }
+
+    function validPostLimitUpdate(uid) {
+      let old = resource.data;
+      let d = request.resource.data;
+      return verified()
+        && request.auth.uid == uid
+        && old.keys().hasOnly(['windowStart', 'events', 'updatedAt'])
+        && d.keys().hasAll(['windowStart', 'events', 'updatedAt'])
+        && d.keys().hasOnly(['windowStart', 'events', 'updatedAt'])
+        && old.windowStart is timestamp
+        && old.events is list
+        && old.events.size() >= 1
+        && old.events.size() <= 10
+        && d.windowStart is timestamp
+        && d.events is list
+        && d.events.size() >= 1
+        && d.events.size() <= 10
+        && d.events.toSet().size() == d.events.size()
+        && d.events[d.events.size() - 1] is string
+        && d.events[d.events.size() - 1].matches('^[A-Za-z0-9_-]{1,128}$')
+        && d.updatedAt is timestamp
+        && d.updatedAt == request.time
+        && d.diff(old).affectedKeys().hasOnly(['windowStart', 'events', 'updatedAt'])
+        && (
+          (
+            old.windowStart > request.time - duration.value(1, 'h')
+            && old.events.size() < 10
+            && d.windowStart == old.windowStart
+            && d.events.size() == old.events.size() + 1
+            && d.events.toSet().hasAll(old.events)
+          )
+          || (
+            old.windowStart <= request.time - duration.value(1, 'h')
+            && d.windowStart == request.time
+            && d.events.size() == 1
+          )
+        );
+    }
+
+    function postLimitIncremented(uid, postId) {
+      let path = postLimitPath(uid);
+      return existsAfter(path)
+        && getAfter(path).data.updatedAt == request.time
+        && getAfter(path).data.events is list
+        && getAfter(path).data.events.size() >= 1
+        && getAfter(path).data.events[getAfter(path).data.events.size() - 1] == postId
+        && (
+          (!exists(path)
+            && getAfter(path).data.windowStart == request.time
+            && getAfter(path).data.events.size() == 1)
+          || (exists(path)
+            && getAfter(path).data.events.size() == get(path).data.events.size() + 1
+            && getAfter(path).data.events.toSet().hasAll(get(path).data.events))
+        );
+    }
+
+
+    function communityPostLimitIncremented(uid, communityId, postId) {
+      let path = postLimitPath(uid);
+      let token = communityId + '_' + postId;
+      return existsAfter(path)
+        && getAfter(path).data.updatedAt == request.time
+        && getAfter(path).data.events is list
+        && getAfter(path).data.events.size() >= 1
+        && getAfter(path).data.events.size() <= 10
+        && getAfter(path).data.events[getAfter(path).data.events.size() - 1] == token
+        && (
+          (!exists(path) && getAfter(path).data.windowStart == request.time
+            && getAfter(path).data.events.size() == 1)
+          || (exists(path)
+            && getAfter(path).data.events.size() == get(path).data.events.size() + 1
+            && getAfter(path).data.events.toSet().hasAll(get(path).data.events))
+        );
+    }
+
+    function postPath(postId) { return /databases/$(database)/documents/posts/$(postId); }
+    function postOwnerPath(postId) { return /databases/$(database)/documents/postOwners/$(postId); }
+    function postLikePath(postId, uid) { return /databases/$(database)/documents/posts/$(postId)/likes/$(uid); }
+    function postCommentPath(postId, commentId) { return /databases/$(database)/documents/posts/$(postId)/comments/$(commentId); }
+    function validPostCategory(value) { return value in ['Отношения', 'Красота', 'Жизнь', 'Учёба и работа', 'Другое']; }
+    function validPostTag(value) {
+      return value is string && value.size() >= 3 && value.size() <= 31
+        && value.matches('^#[A-Za-zА-Яа-яЁё0-9_]{2,30}$');
+    }
+    function validPostTags(tags) {
+      return tags is list && tags.size() <= 10 && tags.toSet().size() == tags.size()
+        && (tags.size() < 1 || validPostTag(tags[0]))
+        && (tags.size() < 2 || validPostTag(tags[1]))
+        && (tags.size() < 3 || validPostTag(tags[2]))
+        && (tags.size() < 4 || validPostTag(tags[3]))
+        && (tags.size() < 5 || validPostTag(tags[4]))
+        && (tags.size() < 6 || validPostTag(tags[5]))
+        && (tags.size() < 7 || validPostTag(tags[6]))
+        && (tags.size() < 8 || validPostTag(tags[7]))
+        && (tags.size() < 9 || validPostTag(tags[8]))
+        && (tags.size() < 10 || validPostTag(tags[9]));
+    }
+    function postOwnerCreated(postId, anonymous) {
+      let owner = postOwnerPath(postId);
+      let post = postPath(postId);
+      return existsAfter(owner)
+        && getAfter(owner).data.keys().hasOnly(['uid', 'createdAt', 'anonymous'])
+        && getAfter(owner).data.uid == request.auth.uid
+        && getAfter(owner).data.anonymous == anonymous
+        && getAfter(owner).data.createdAt == request.time
+        && existsAfter(post)
+        && getAfter(post).data.anonymous == anonymous;
+    }
+    function validPostCreate(postId) {
+      let d = request.resource.data;
+      let profile = /databases/$(database)/documents/lunaProfiles/$(request.auth.uid);
+      return verified()
+        && postId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && d.keys().hasAll(['text','category','createdAt','updatedAt','likeCount','commentCount','hashtags','anonymous','authorName','authorPhoto','isDeleted','counterEvent'])
+        && d.keys().hasOnly(['text','category','createdAt','updatedAt','likeCount','commentCount','hashtags','anonymous','authorName','authorPhoto','isDeleted','counterEvent','authorUid','isHidden','hiddenBy','hiddenAt'])
+        && d.text is string && d.text.size() > 0 && d.text.size() <= 2000
+        && validPostCategory(d.category)
+        && d.createdAt is timestamp && d.createdAt == request.time
+        && d.updatedAt is timestamp && d.updatedAt == request.time
+        && d.likeCount is int && d.likeCount == 0
+        && d.commentCount is int && d.commentCount == 0
+        && validPostTags(d.hashtags)
+        && d.anonymous is bool
+        && d.authorName is string && d.authorName.size() >= 2 && d.authorName.size() <= 40
+        && d.authorPhoto is string && d.authorPhoto.size() <= 600000
+        && d.isDeleted == false
+        && (!('isHidden' in d) || d.isHidden == false)
+        && (!('hiddenBy' in d) || d.hiddenBy == '')
+        && (!('hiddenAt' in d) || d.hiddenAt == null)
+        && d.counterEvent is map
+        && d.counterEvent.keys().hasOnly(['kind','commentId'])
+        && d.counterEvent.kind == 'none' && d.counterEvent.commentId == ''
+        && (d.anonymous
+          ? d.authorName == 'Анонимно' && d.authorPhoto == ''
+            && !('authorUid' in d)
+          : exists(profile) && d.authorUid == request.auth.uid
+            && d.authorName == get(profile).data.nick
+            && d.authorPhoto == get(profile).data.photo)
+        && postOwnerCreated(postId, d.anonymous)
+        && postLimitIncremented(request.auth.uid, postId);
+    }
+    function validPostOwnerCreate(postId) {
+      let d = request.resource.data;
+      let post = postPath(postId);
+      return verified()
+        && d.keys().hasAll(['uid','createdAt','anonymous'])
+        && d.keys().hasOnly(['uid','createdAt','anonymous'])
+        && d.uid == request.auth.uid && d.createdAt == request.time && d.anonymous is bool
+        && existsAfter(post)
+        && getAfter(post).data.createdAt == d.createdAt
+        && getAfter(post).data.anonymous == d.anonymous;
+    }
+    function isPostOwner(postId) {
+      let owner = postOwnerPath(postId);
+      return request.auth != null && exists(owner) && get(owner).data.uid == request.auth.uid;
+    }
+    function validPostDelete(postId) {
+      let d = request.resource.data;
+      return isPostOwner(postId) && resource.data.isDeleted == false
+        && d.isDeleted == true && d.text == '' && d.hashtags == []
+        && d.authorName == 'Запись удалена' && d.authorPhoto == ''
+        && d.likeCount == resource.data.likeCount && d.commentCount == resource.data.commentCount
+        && d.category == resource.data.category && d.createdAt == resource.data.createdAt
+        && d.anonymous == resource.data.anonymous && d.counterEvent == resource.data.counterEvent
+        && ((!('authorUid' in resource.data) && !('authorUid' in d))
+          || ('authorUid' in resource.data && resource.data.authorUid == request.auth.uid
+            && 'authorUid' in d && d.authorUid == ''))
+        && (('isHidden' in resource.data && 'isHidden' in d && d.isHidden == resource.data.isHidden)
+          || (!('isHidden' in resource.data) && !('isHidden' in d)))
+        && (('hiddenBy' in resource.data && 'hiddenBy' in d && d.hiddenBy == resource.data.hiddenBy)
+          || (!('hiddenBy' in resource.data) && !('hiddenBy' in d)))
+        && (('hiddenAt' in resource.data && 'hiddenAt' in d && d.hiddenAt == resource.data.hiddenAt)
+          || (!('hiddenAt' in resource.data) && !('hiddenAt' in d)))
+        && d.updatedAt == request.time
+        && d.diff(resource.data).affectedKeys().hasOnly(['isDeleted','text','hashtags','authorName','authorPhoto','updatedAt','authorUid']);
+    }
+    function likeCreated(postId) {
+      let path = postLikePath(postId, request.auth.uid);
+      return !exists(path) && existsAfter(path)
+        && getAfter(path).data.uid == request.auth.uid && getAfter(path).data.createdAt == request.time;
+    }
+    function likeDeleted(postId) {
+      let path = postLikePath(postId, request.auth.uid);
+      return exists(path) && get(path).data.uid == request.auth.uid && !existsAfter(path);
+    }
+    function validPostCounters(postId) {
+      let d = request.resource.data;
+      let old = resource.data;
+      let event = d.counterEvent;
+      let commentPath = postCommentPath(postId, event.commentId);
+      return signedIn() && old.isDeleted == false && d.isDeleted == false
+        && d.createdAt == old.createdAt && d.text == old.text && d.category == old.category
+        && (('authorUid' in old && 'authorUid' in d && d.authorUid == old.authorUid)
+          || (!('authorUid' in old) && !('authorUid' in d)))
+        && (('isHidden' in old && 'isHidden' in d && d.isHidden == old.isHidden)
+          || (!('isHidden' in old) && !('isHidden' in d)))
+        && (('hiddenBy' in old && 'hiddenBy' in d && d.hiddenBy == old.hiddenBy)
+          || (!('hiddenBy' in old) && !('hiddenBy' in d)))
+        && (('hiddenAt' in old && 'hiddenAt' in d && d.hiddenAt == old.hiddenAt)
+          || (!('hiddenAt' in old) && !('hiddenAt' in d)))
+        && d.anonymous == old.anonymous && d.authorName == old.authorName
+        && d.authorPhoto == old.authorPhoto && d.hashtags == old.hashtags
+        && d.updatedAt == request.time && d.likeCount is int && d.commentCount is int
+        && d.likeCount >= 0 && d.commentCount >= 0 && d.counterEvent is map
+        && d.counterEvent.keys().hasOnly(['kind','commentId'])
+        && d.diff(old).affectedKeys().hasOnly(['likeCount','commentCount','counterEvent','updatedAt'])
+        && (
+          (d.likeCount == old.likeCount + 1 && d.commentCount == old.commentCount
+            && d.counterEvent == old.counterEvent && likeCreated(postId))
+          || (d.likeCount == old.likeCount - 1 && d.commentCount == old.commentCount
+            && d.counterEvent == old.counterEvent && likeDeleted(postId))
+          || (d.likeCount == old.likeCount && d.commentCount == old.commentCount + 1
+            && event.kind == 'comment-create' && event.commentId is string
+            && event.commentId.matches('^[A-Za-z0-9_-]{1,128}$')
+            && !exists(commentPath) && existsAfter(commentPath)
+            && getAfter(commentPath).data.authorUid == request.auth.uid
+            && getAfter(commentPath).data.createdAt == request.time)
+          || (d.likeCount == old.likeCount && d.commentCount == old.commentCount - 1
+            && event.kind == 'comment-delete' && event.commentId is string
+            && event.commentId.matches('^[A-Za-z0-9_-]{1,128}$')
+            && exists(commentPath) && get(commentPath).data.authorUid == request.auth.uid
+            && !existsAfter(commentPath))
+        );
+    }
+    function validPostComment(postId, commentId) {
+      let d = request.resource.data;
+      let post = postPath(postId);
+      let profile = /databases/$(database)/documents/lunaProfiles/$(request.auth.uid);
+      let event = getAfter(post).data.counterEvent;
+      return verified() && exists(post) && get(post).data.isDeleted == false
+        && d.keys().hasAll(['authorUid','authorName','authorPhoto','text','createdAt'])
+        && d.keys().hasOnly(['authorUid','authorName','authorPhoto','text','createdAt','isHidden'])
+        && d.authorUid == request.auth.uid
+        && d.isHidden == false
+        && d.authorName is string && d.authorName.size() >= 2 && d.authorName.size() <= 40
+        && d.authorPhoto is string && d.authorPhoto.size() <= 600000
+        && d.text is string && d.text.size() > 0 && d.text.size() <= 1200
+        && d.createdAt is timestamp && d.createdAt == request.time
+        && existsAfter(post) && getAfter(post).data.commentCount == get(post).data.commentCount + 1
+        && event.kind == 'comment-create' && event.commentId == commentId
+        && exists(profile) && d.authorName == get(profile).data.nick
+        && d.authorPhoto == get(profile).data.photo;
+    }
+    function validPostCommentDelete(postId, commentId) {
+      let post = postPath(postId);
+      let event = getAfter(post).data.counterEvent;
+      return verified() && resource.data.authorUid == request.auth.uid
+        && exists(post) && get(post).data.isDeleted == false
+        && getAfter(post).data.commentCount == get(post).data.commentCount - 1
+        && event.kind == 'comment-delete' && event.commentId == commentId
+        && !existsAfter(postCommentPath(postId, commentId));
+    }
+
+
+    function validOwnerFriendCount(uid) {
+      return request.auth.uid == uid
+        && request.resource.data.friendCount is int
+        && request.resource.data.friendCount >= 0
+        && request.resource.data.friendCount <= 10000
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friendCount', 'updatedAt']);
+    }
+
+    function validProfile(uid) {
+      let d = request.resource.data;
+      let usernamePath = /databases/$(database)/documents/lunaUsernames/$(d.nickLower);
+      return d.keys().hasAll(['nick', 'nickLower', 'bio', 'interests', 'photo', 'updatedAt'])
+        && d.keys().hasOnly(['nick', 'nickLower', 'bio', 'interests', 'photo', 'friendCount', 'updatedAt', 'visibility'])
+        && (!('friendCount' in d) || (d.friendCount is int && d.friendCount >= 0 && d.friendCount <= 10000))
+        && (!('visibility' in d) || d.visibility in ['private', 'public'])
+        && validNick(d.nick)
+        && validNick(d.nickLower)
+        && d.bio is string
+        && d.bio.size() <= 500
+        && d.interests is string
+        && d.interests.size() <= 180
+        && d.photo is string
+        && d.photo.size() <= 600000
+        && d.updatedAt is timestamp
+        && d.updatedAt == request.time
+        && existsAfter(usernamePath)
+        && getAfter(usernamePath).data.uid == uid
+        && getAfter(usernamePath).data.nick == d.nick
+        && getAfter(usernamePath).data.nickLower == d.nickLower;
+    }
+
+    function validPrivateProfile() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['mood', 'favorites', 'updatedAt'])
+        && d.keys().hasOnly(['mood', 'favorites', 'presenceEnabled', 'recommendationsEnabled', 'updatedAt'])
+        && (!('recommendationsEnabled' in d) || d.recommendationsEnabled is bool)
+        && (!('presenceEnabled' in d) || d.presenceEnabled is bool)
+        && d.mood is string
+        && d.mood.size() <= 40
+        && d.favorites is string
+        && d.favorites.size() <= 180
+        && d.updatedAt is timestamp
+        && d.updatedAt == request.time;
     }
 
     function validUsername(nickLower) {
@@ -96,9 +519,7 @@ service cloud.firestore {
         && d.keys().hasOnly(['uid', 'nick', 'nickLower', 'updatedAt'])
         && validUid(d.uid)
         && d.uid == request.auth.uid
-        && d.nick is string
-        && d.nick.size() >= 2
-        && d.nick.size() <= 40
+        && validNick(d.nick)
         && validNick(nickLower)
         && d.nickLower == nickLower
         && d.updatedAt is timestamp
@@ -108,208 +529,286 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/lunaProfiles/$(d.uid)).data.nickLower == d.nickLower;
     }
 
-    function validProfile(uid) {
+    function validMessageReply(d) {
+      return !('replyTo' in d)
+        || (d.replyTo is map
+          && d.replyTo.keys().hasAll(['id', 'text'])
+          && d.replyTo.keys().hasOnly(['id', 'text'])
+          && d.replyTo.id is string
+          && d.replyTo.id.size() > 0
+          && d.replyTo.id.size() <= 128
+          && d.replyTo.text is string
+          && d.replyTo.text.size() <= 150);
+    }
+
+    function validMessageReactionChange() {
       let d = request.resource.data;
-      let usernamePath = /databases/$(database)/documents/lunaUsernames/$(d.nickLower);
-      return d.keys().hasAll([
-          'uid', 'nick', 'nickLower', 'bio', 'interests',
-          'favorites', 'photo', 'mood', 'updatedAt'
-        ])
-        && d.keys().hasOnly([
-          'uid', 'nick', 'nickLower', 'bio', 'interests',
-          'favorites', 'photo', 'mood', 'updatedAt'
-        ])
-        && validUid(d.uid)
-        && d.uid == uid
-        && d.nick is string
-        && d.nick.size() >= 2
-        && d.nick.size() <= 40
-        && validNick(d.nickLower)
-        && d.bio is string
-        && d.bio.size() <= 500
-        && d.interests is string
-        && d.interests.size() <= 180
-        && d.favorites is string
-        && d.favorites.size() <= 180
-        && d.photo is string
-        && d.photo.size() <= 600000
-        && d.mood in [
-          '', '🌷 Спокойное', '✨ Вдохновлённое', '🌙 Задумчивое',
-          '💗 Романтичное', '☁️ Немного грустное', '🔥 Полна энергии'
-        ]
-        && d.updatedAt is timestamp
-        && d.updatedAt == request.time
-        && existsAfter(usernamePath)
-        && getAfter(usernamePath).data.uid == uid
-        && getAfter(usernamePath).data.nick == d.nick
-        && getAfter(usernamePath).data.nickLower == d.nickLower;
+      return request.auth != null
+        && (!("isHidden" in resource.data) || resource.data.isHidden != true)
+        && d.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+        && d.reactions is map
+        && d.reactions.size() <= 100
+        && (
+          (!('reactions' in resource.data)
+            && d.reactions.keys().hasOnly([request.auth.uid]))
+          || ('reactions' in resource.data
+            && resource.data.reactions is map
+            && d.reactions.diff(resource.data.reactions).affectedKeys().hasOnly([request.auth.uid]))
+        )
+        && (!(request.auth.uid in d.reactions)
+          || d.reactions[request.auth.uid] == ''
+          || d.reactions[request.auth.uid] in ['❤️', '👍', '😂', '✨', '🥰']);
     }
 
-
-    // Rooms remain private: only members may list; invitees can read their pending invite's room.
-    match /lunaRooms/{roomId} {
-      allow get: if canReadRoom(roomId);
-      allow list: if isRoomMember(roomId);
-
-      // Rooms start with the creator alone. Members join only through verified invitations.
-      allow create: if signedIn()
-        && validRoomId(roomId)
-        && request.resource.data.keys().hasAll([
-          'type', 'title', 'description', 'ownerUid', 'members', 'admins',
-          'createdAt', 'updatedAt'
-        ])
-        && request.resource.data.keys().hasOnly([
-          'type', 'title', 'description', 'ownerUid', 'members', 'admins',
-          'createdAt', 'updatedAt'
-        ])
-        && request.resource.data.type in ['group', 'channel']
-        && request.resource.data.title is string
-        && request.resource.data.title.size() >= 2
-        && request.resource.data.title.size() <= 60
-        && request.resource.data.description is string
-        && request.resource.data.description.size() <= 300
-        && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.members == [request.auth.uid]
-        && request.resource.data.admins == [request.auth.uid]
-        && request.resource.data.createdAt is timestamp
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.updatedAt is timestamp
-        && request.resource.data.updatedAt == request.time;
-
-      allow update: if signedIn()
-        && request.resource.data.keys().hasAll([
-          'type', 'title', 'description', 'ownerUid', 'members', 'admins',
-          'createdAt', 'updatedAt'
-        ])
-        && request.resource.data.keys().hasOnly([
-          'type', 'title', 'description', 'ownerUid', 'members', 'admins',
-          'createdAt', 'updatedAt'
-        ])
-        && request.resource.data.type == resource.data.type
-        && request.resource.data.ownerUid == resource.data.ownerUid
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.admins == resource.data.admins
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'title', 'description', 'members', 'updatedAt'
-        ])
-        && request.resource.data.updatedAt is timestamp
-        && request.resource.data.updatedAt == request.time
+    function validRoomMessage(roomId) {
+      let d = request.resource.data;
+      let room = get(roomPath(roomId)).data;
+      return d.keys().hasAll(['fromUid', 'text', 'createdAt'])
+        && d.keys().hasOnly(['fromUid', 'text', 'createdAt', 'image', 'replyTo'])
+        && d.fromUid == request.auth.uid
         && (
-          (
-            resource.data.ownerUid == request.auth.uid
-            && request.resource.data.members == resource.data.members
-            && request.resource.data.title is string
-            && request.resource.data.title.size() >= 2
-            && request.resource.data.title.size() <= 60
-            && request.resource.data.description is string
-            && request.resource.data.description.size() <= 300
-          )
-          ||
-          (
-            request.resource.data.title == resource.data.title
-            && request.resource.data.description == resource.data.description
-            && resource.data.members is list
-            && resource.data.members.size() < 50
-            && request.resource.data.members is list
-            && request.resource.data.members.size() == resource.data.members.size() + 1
-            && request.resource.data.members.toSet().hasAll(resource.data.members)
-            && request.auth.uid in request.resource.data.members
-            && !(request.auth.uid in resource.data.members)
-            && exists(roomInvitePath(roomId, request.auth.uid))
-            && get(roomInvitePath(roomId, request.auth.uid)).data.fromUid == resource.data.ownerUid
-            && get(roomInvitePath(roomId, request.auth.uid)).data.status == 'pending'
-            && getAfter(roomInvitePath(roomId, request.auth.uid)).data.status == 'accepted'
-          )
-        );
-
-      allow delete: if false;
-
-      match /messages/{messageId} {
-        allow get, list: if isRoomMember(roomId);
-        allow create: if isRoomMember(roomId) && validRoomMessage(roomId);
-        allow update, delete: if false;
-      }
-    }
-
-    match /lunaRoomInvites/{inviteId} {
-      allow get, list: if signedIn()
-        && (resource.data.toUid == request.auth.uid
-          || resource.data.fromUid == request.auth.uid);
-
-      // Only an existing friend may be invited. getAfter supports an atomic room + invite creation.
-      allow create: if signedIn()
-        && request.resource.data.keys().hasAll([
-          'roomId', 'toUid', 'fromUid', 'status', 'createdAt'
-        ])
-        && request.resource.data.keys().hasOnly([
-          'roomId', 'toUid', 'fromUid', 'status', 'createdAt'
-        ])
-        && validRoomId(request.resource.data.roomId)
-        && request.resource.data.roomId.size() > 0
-        && validUid(request.resource.data.toUid)
-        && request.resource.data.toUid != request.auth.uid
-        && request.resource.data.fromUid == request.auth.uid
-        && request.resource.data.status == 'pending'
-        && request.resource.data.createdAt is timestamp
-        && request.resource.data.createdAt == request.time
-        && inviteId == request.resource.data.roomId + '~' + request.resource.data.toUid
-        && isFriend(request.resource.data.toUid)
-        && existsAfter(roomPath(request.resource.data.roomId))
-        && getAfter(roomPath(request.resource.data.roomId)).data.ownerUid == request.auth.uid
-        && !(request.resource.data.toUid in getAfter(roomPath(request.resource.data.roomId)).data.members);
-
-      allow update: if signedIn()
-        && resource.data.toUid == request.auth.uid
-        && resource.data.status == 'pending'
-        && request.resource.data.roomId == resource.data.roomId
-        && request.resource.data.toUid == resource.data.toUid
-        && request.resource.data.fromUid == resource.data.fromUid
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.status in ['accepted', 'declined']
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          (!d.keys().hasAny(['image'])
+            && d.text is string
+            && d.text.size() > 0
+            && d.text.size() <= 2000)
+          || (d.keys().hasAny(['image'])
+            && d.image is string
+            && d.image.size() > 0
+            && d.image.size() <= 280000
+            && d.image.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$')
+            && d.text == '')
+        )
+        && validMessageReply(d)
+        && d.createdAt is timestamp
+        && d.createdAt == request.time
         && (
-          request.resource.data.status == 'declined'
-          || (
-            exists(roomPath(resource.data.roomId))
-            && resource.data.fromUid == get(roomPath(resource.data.roomId)).data.ownerUid
-            && !(request.auth.uid in get(roomPath(resource.data.roomId)).data.members)
-            && getAfter(roomPath(resource.data.roomId)).data.members.size()
-              == get(roomPath(resource.data.roomId)).data.members.size() + 1
-            && getAfter(roomPath(resource.data.roomId)).data.members.toSet()
-              .hasAll(get(roomPath(resource.data.roomId)).data.members)
-            && request.auth.uid in getAfter(roomPath(resource.data.roomId)).data.members
-          )
+          room.type == 'group'
+          || (room.type == 'channel'
+            && (request.auth.uid == room.ownerUid
+              || (room.admins is list && request.auth.uid in room.admins)))
         );
-
-      allow delete: if false;
     }
 
     match /lunaProfiles/{uid} {
-      allow get: if signedIn()
-        && (request.auth.uid == uid || isFriend(uid));
+      allow get: if (request.auth != null && request.auth.uid == uid)
+        || (signedIn() && admin()
+          || (((isFriend(uid) || resource.data.visibility == 'public')
+            && !isBlockedBetween(request.auth.uid, uid))
+            && resource.data.keys().hasOnly([
+              'nick', 'nickLower', 'bio', 'interests', 'photo', 'friendCount', 'updatedAt', 'visibility'
+            ])));
       allow list: if false;
       allow create: if signedIn()
         && request.auth.uid == uid
-        && validProfile(uid);
+        && validProfile(uid)
+        && (!('friendCount' in request.resource.data) || request.resource.data.friendCount == 0);
       allow update: if signedIn()
+        && validProfile(uid)
+        && ((request.auth.uid == uid
+              && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['friendCount'])
+                || validOwnerFriendCount(uid)))
+          );
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /lunaPrivateProfiles/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update: if signedIn()
         && request.auth.uid == uid
-        && resource.data.uid == uid
-        && validProfile(uid);
+        && validPrivateProfile();
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /lunaPrivateProfiles/{uid}/moodEntries/{day} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list: if request.auth != null && request.auth.uid == uid && request.query.limit <= 30;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && day.matches('^20[0-9]{2}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.keys().hasAll(['day','mood','note','updatedAt'])
+        && request.resource.data.keys().hasOnly(['day','mood','note','updatedAt'])
+        && request.resource.data.day == day
+        && request.resource.data.mood in ['😊 Хорошо','✨ Вдохновлённо','😐 Спокойно','😔 Грустно','😣 Тревожно']
+        && request.resource.data.note is string && request.resource.data.note.size() <= 500
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    match /lunaPrivateProfiles/{uid}/wellnessDays/{day} {
+      function validWellnessDay() {
+        let d = request.resource.data;
+        return d.keys().hasAll(['day','water','done','habits','updatedAt'])
+          && d.keys().hasOnly(['day','water','done','habits','updatedAt'])
+          && d.day == day && day.matches('^20[0-9]{2}-[0-9]{2}-[0-9]{2}$')
+          && d.water is int && d.water >= 0 && d.water <= 8
+          && d.done is list && d.done.size() <= 3
+          && d.done.hasOnly(['kind','water','pause'])
+          && d.habits is map
+          && d.habits.keys().hasOnly(['stretch','read','kind'])
+          && d.habits.stretch is bool && d.habits.read is bool && d.habits.kind is bool
+          && d.updatedAt == request.time;
+      }
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update: if request.auth != null && request.auth.uid == uid && validWellnessDay();
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    match /lunaPrivateProfiles/{uid}/gamification/{documentId} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && documentId == 'state'
+        && request.resource.data.keys().hasAll(['lastDate','streakDays','badges','updatedAt'])
+        && request.resource.data.keys().hasOnly(['lastDate','streakDays','badges','updatedAt'])
+        && request.resource.data.lastDate is string
+        && request.resource.data.lastDate.matches('^20[0-9]{2}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.streakDays is int
+        && request.resource.data.streakDays >= 0 && request.resource.data.streakDays <= 36500
+        && request.resource.data.badges is list && request.resource.data.badges.size() <= 30
+        && request.resource.data.badges.hasOnly(['seven_days','five_friends','first_post'])
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    match /lunaPrivateProfiles/{uid}/pet/{documentId} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && documentId == 'state'
+        && request.resource.data.keys().hasAll(['food','happy','energy','inventory','equipped','updatedAt'])
+        && request.resource.data.keys().hasOnly(['food','happy','energy','inventory','equipped','updatedAt'])
+        && request.resource.data.food is int && request.resource.data.food >= 0 && request.resource.data.food <= 100
+        && request.resource.data.happy is int && request.resource.data.happy >= 0 && request.resource.data.happy <= 100
+        && request.resource.data.energy is int && request.resource.data.energy >= 0 && request.resource.data.energy <= 100
+        && request.resource.data.inventory is list && request.resource.data.inventory.size() <= 10
+        && request.resource.data.inventory.hasOnly(['berry','crown','bow'])
+        && request.resource.data.equipped is string
+        && (request.resource.data.equipped == '' || request.resource.data.equipped in request.resource.data.inventory)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    match /lunaAgeConsents/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || admin());
+      allow list: if false;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['uid','age14','acceptedAt','policyVersion'])
+        && request.resource.data.keys().hasOnly(['uid','age14','acceptedAt','policyVersion'])
+        && request.resource.data.uid == uid
+        && request.resource.data.age14 == true
+        && request.resource.data.acceptedAt == request.time
+        && request.resource.data.policyVersion == '1';
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /lunaBlocks/{ownerUid}/users/{blockedUid} {
+      allow get, list: if signedIn() && request.auth.uid == ownerUid;
+      allow create: if verified() && request.auth.uid == ownerUid
+        && ownerUid != blockedUid && validUid(blockedUid)
+        && request.resource.data.keys().hasAll(['uid','createdAt'])
+        && request.resource.data.keys().hasOnly(['uid','createdAt'])
+        && request.resource.data.uid == blockedUid
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == ownerUid;
+    }
+
+    match /lunaBans/{uid} {
+      allow get, list: if admin();
+      allow create, update: if admin()
+        && request.resource.data.keys().hasAll(['uid','reason','createdAt','adminUid'])
+        && request.resource.data.keys().hasOnly(['uid','reason','createdAt','adminUid'])
+        && request.resource.data.uid == uid
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 500
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.adminUid == request.auth.uid;
+      allow delete: if admin();
+    }
+
+    match /reports/{reportId} {
+      allow create: if verified()
+        && reportId.size() >= 20 && reportId.size() <= 128
+        && request.resource.data.keys().hasAll([
+          'reporterUid','targetType','targetId','reason','details','targetSnapshot','createdAt','status'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'reporterUid','targetType','targetId','reason','details','targetSnapshot','createdAt','status'
+        ])
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.targetType in ['post','comment','message','profile']
+        && request.resource.data.targetId is string
+        && request.resource.data.targetId.size() <= 256
+        && request.resource.data.reason in ['spam','harassment','inappropriate','fraud','privacy','other']
+        && request.resource.data.details is string
+        && request.resource.data.details.size() <= 500
+        && request.resource.data.targetSnapshot is string
+        && request.resource.data.targetSnapshot.size() <= 500
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.status == 'open';
+      allow get, list: if admin()
+        || (signedIn() && resource.data.reporterUid == request.auth.uid);
+      allow update: if admin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','handledBy','handledAt'])
+        && request.resource.data.status in ['open','reviewing','resolved','dismissed']
+        && request.resource.data.handledBy == request.auth.uid
+        && request.resource.data.handledAt == request.time;
       allow delete: if false;
     }
 
-    // Exact nickname lookup exposes only the username and UID, never full profiles.
+    match /moderationSettings/{settingId} {
+      allow get: if signedIn() && settingId == 'contentFilter';
+      allow list: if false;
+      allow create, update: if admin() && settingId == 'contentFilter'
+        && request.resource.data.keys().hasAll(['blockedWords','updatedAt'])
+        && request.resource.data.keys().hasOnly(['blockedWords','updatedAt'])
+        && request.resource.data.blockedWords is list
+        && request.resource.data.blockedWords.size() <= 100
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /lunaAccountDeletionRequests/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || admin());
+      allow list: if admin();
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.auth.token.email_verified == true
+        && request.resource.data.keys().hasAll(['uid','requestedAt','state'])
+        && request.resource.data.keys().hasOnly(['uid','requestedAt','state'])
+        && request.resource.data.uid == uid
+        && request.resource.data.requestedAt == request.time
+        && request.resource.data.state == 'requested';
+      allow update: if admin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state','handledAt'])
+        && request.resource.data.state in ['completed','rejected'];
+      allow delete: if false;
+    }
+
     match /lunaUsernames/{nickLower} {
       allow get: if signedIn();
-      allow list: if false;
+      allow list: if signedIn() && request.query.limit <= 20;
       allow create: if signedIn() && validUsername(nickLower);
       allow update: if signedIn()
         && resource.data.uid == request.auth.uid
         && validUsername(nickLower);
-      allow delete: if signedIn()
+      allow delete: if request.auth != null
         && resource.data.uid == request.auth.uid
-        && existsAfter(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid))
-        && getAfter(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid)).data.nickLower != nickLower;
+        && (!existsAfter(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid))
+          || getAfter(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid)).data.nickLower != nickLower);
+    }
+
+    match /lunaFriendRequestLimits/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow create: if validFriendLimitCreate(uid);
+      allow update: if validFriendLimitUpdate(uid);
+      allow delete: if false;
+    }
+
+    match /lunaPostLimits/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow create: if validPostLimitCreate(uid);
+      allow update: if validPostLimitUpdate(uid);
+      allow delete: if false;
     }
 
     match /lunaFriendRequests/{requestId} {
@@ -317,23 +816,21 @@ service cloud.firestore {
         && (resource.data.fromUid == request.auth.uid
           || resource.data.toUid == request.auth.uid);
 
-      allow create: if signedIn()
+      allow create: if verified()
         && request.resource.data.keys().hasAll([
-          'fromUid', 'toUid', 'fromNick', 'toNick',
-          'toNickLower', 'status', 'createdAt'
+          'fromUid', 'toUid', 'fromNick', 'toNick', 'toNickLower',
+          'sendToken', 'status', 'createdAt'
         ])
         && request.resource.data.keys().hasOnly([
-          'fromUid', 'toUid', 'fromNick', 'toNick',
-          'toNickLower', 'status', 'createdAt'
+          'fromUid', 'toUid', 'fromNick', 'toNick', 'toNickLower',
+          'sendToken', 'status', 'createdAt'
         ])
         && validUid(request.resource.data.fromUid)
         && request.resource.data.fromUid == request.auth.uid
         && validUid(request.resource.data.toUid)
-        && requestId == request.resource.data.fromUid + '~' + request.resource.data.toUid
-        && request.resource.data.toUid is string
-        && request.resource.data.toUid.size() > 0
-        && request.resource.data.toUid.size() <= 128
         && request.resource.data.toUid != request.auth.uid
+        && !isBlockedBetween(request.auth.uid, request.resource.data.toUid)
+        && requestId == request.resource.data.fromUid + '~' + request.resource.data.toUid
         && request.resource.data.fromNick is string
         && request.resource.data.fromNick.size() >= 2
         && request.resource.data.fromNick.size() <= 40
@@ -341,6 +838,8 @@ service cloud.firestore {
         && request.resource.data.toNick.size() >= 2
         && request.resource.data.toNick.size() <= 40
         && validNick(request.resource.data.toNickLower)
+        && validFriendEventToken(request.resource.data.sendToken)
+        && request.resource.data.sendToken.matches('^' + request.resource.data.toUid + '~[A-Fa-f0-9-]{36}$')
         && request.resource.data.status == 'pending'
         && request.resource.data.createdAt is timestamp
         && request.resource.data.createdAt == request.time
@@ -351,7 +850,8 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/lunaUsernames/$(request.resource.data.toNickLower)).data.nick == request.resource.data.toNick
         && !exists(pairPath(request.auth.uid, request.resource.data.toUid))
         && (!exists(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.toUid + '~' + request.auth.uid))
-          || get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.toUid + '~' + request.auth.uid)).data.status == 'declined');
+          || get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.toUid + '~' + request.auth.uid)).data.status == 'declined')
+        && friendLimitIncremented(request.auth.uid, request.resource.data.sendToken);
 
       allow update: if signedIn()
         && requestId == resource.data.fromUid + '~' + resource.data.toUid
@@ -366,20 +866,21 @@ service cloud.firestore {
             && request.resource.data.toNickLower == resource.data.toNickLower
             && request.resource.data.createdAt == resource.data.createdAt
             && request.resource.data.status in ['accepted', 'declined']
+            && (request.resource.data.status == 'declined'
+              || !isBlockedBetween(resource.data.fromUid, resource.data.toUid))
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
             && (request.resource.data.status != 'accepted'
               || (existsAfter(pairPath(resource.data.fromUid, resource.data.toUid))
                 && resource.data.fromUid in getAfter(pairPath(resource.data.fromUid, resource.data.toUid)).data.members
                 && resource.data.toUid in getAfter(pairPath(resource.data.fromUid, resource.data.toUid)).data.members))
           )
-          ||
-          (
-            resource.data.fromUid == request.auth.uid
+          || (
+            verified()
+            && resource.data.fromUid == request.auth.uid
             && resource.data.status == 'declined'
             && request.resource.data.status == 'pending'
             && request.resource.data.fromUid == resource.data.fromUid
             && request.resource.data.toUid == resource.data.toUid
-            && request.resource.data.createdAt == resource.data.createdAt
             && request.resource.data.fromNick is string
             && request.resource.data.fromNick.size() >= 2
             && request.resource.data.fromNick.size() <= 40
@@ -387,8 +888,12 @@ service cloud.firestore {
             && request.resource.data.toNick.size() >= 2
             && request.resource.data.toNick.size() <= 40
             && validNick(request.resource.data.toNickLower)
+            && validFriendEventToken(request.resource.data.sendToken)
+            && request.resource.data.sendToken.matches('^' + request.resource.data.toUid + '~[A-Fa-f0-9-]{36}$')
+            && request.resource.data.createdAt is timestamp
+            && request.resource.data.createdAt == request.time
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'status', 'fromNick', 'toNick', 'toNickLower'
+              'status', 'fromNick', 'toNick', 'toNickLower', 'sendToken', 'createdAt'
             ])
             && exists(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid))
             && get(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid)).data.nick == request.resource.data.fromNick
@@ -398,6 +903,7 @@ service cloud.firestore {
             && !exists(pairPath(request.auth.uid, request.resource.data.toUid))
             && (!exists(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.toUid + '~' + request.auth.uid))
               || get(/databases/$(database)/documents/lunaFriendRequests/$(request.resource.data.toUid + '~' + request.auth.uid)).data.status == 'declined')
+            && friendLimitIncremented(request.auth.uid, request.resource.data.sendToken)
           )
         );
 
@@ -439,6 +945,30 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /lunaFriendEdges/{uid}/connections/{friendUid} {
+      allow get: if signedIn()
+        && (request.auth.uid == uid
+          || (isFriend(uid)
+            && get(/databases/$(database)/documents/lunaProfiles/$(uid)).data.visibility == 'public'
+            && exists(/databases/$(database)/documents/lunaPrivateProfiles/$(uid))
+            && get(/databases/$(database)/documents/lunaPrivateProfiles/$(uid)).data.recommendationsEnabled == true));
+      allow list: if signedIn() && request.query.limit <= 50
+        && (request.auth.uid == uid
+          || (isFriend(uid)
+            && get(/databases/$(database)/documents/lunaProfiles/$(uid)).data.visibility == 'public'
+            && exists(/databases/$(database)/documents/lunaPrivateProfiles/$(uid))
+            && get(/databases/$(database)/documents/lunaPrivateProfiles/$(uid)).data.recommendationsEnabled == true));
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && friendUid != uid
+        && request.resource.data.keys().hasAll(['friendUid','createdAt'])
+        && request.resource.data.keys().hasOnly(['friendUid','createdAt'])
+        && request.resource.data.friendUid == friendUid
+        && request.resource.data.createdAt == request.time
+        && isFriend(friendUid);
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /lunaChats/{chatId} {
       allow get, list: if isChatMember(chatId);
       allow create: if isChatMember(chatId)
@@ -458,33 +988,378 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']);
       allow delete: if false;
 
+      match /receipts/{uid} {
+        allow get: if isChatMember(chatId);
+        allow list: if false;
+        allow create, update: if isChatMember(chatId)
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasAll(['uid', 'lastReadAt'])
+          && request.resource.data.keys().hasOnly(['uid', 'lastReadAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.lastReadAt is timestamp
+          && request.resource.data.lastReadAt == request.time;
+        allow delete: if false;
+      }
+
+      match /typing/{uid} {
+        allow get: if isChatMember(chatId);
+        allow list: if isChatMember(chatId) && request.query.limit <= 20;
+        allow create, update: if isChatMember(chatId)
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasAll(['uid', 'typing', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['uid', 'typing', 'updatedAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.typing is bool
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if isChatMember(chatId) && request.auth.uid == uid;
+      }
+
       match /messages/{messageId} {
-        allow get, list: if isChatMember(chatId);
+        allow get: if isChatMember(chatId) || admin();
+        allow list: if isChatMember(chatId) && request.query.limit <= 100;
         allow create: if isChatMember(chatId)
           && request.resource.data.keys().hasAll(['fromUid', 'text', 'createdAt'])
-          && request.resource.data.keys().hasOnly(['fromUid', 'text', 'createdAt', 'image'])
+          && request.resource.data.keys().hasOnly(['fromUid', 'text', 'createdAt', 'image', 'replyTo'])
           && request.resource.data.fromUid == request.auth.uid
           && (
-            (
-              !request.resource.data.keys().hasAny(['image'])
+            (!request.resource.data.keys().hasAny(['image'])
               && request.resource.data.text is string
               && request.resource.data.text.size() > 0
-              && request.resource.data.text.size() <= 2000
-            )
-            ||
-            (
-              request.resource.data.keys().hasAny(['image'])
+              && request.resource.data.text.size() <= 2000)
+            || (request.resource.data.keys().hasAny(['image'])
               && request.resource.data.image is string
               && request.resource.data.image.size() > 0
-              && request.resource.data.image.size() <= 700000
+              && request.resource.data.image.size() <= 280000
               && request.resource.data.image.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$')
-              && request.resource.data.text == ''
-            )
+              && request.resource.data.text == '')
           )
+          && validMessageReply(request.resource.data)
           && request.resource.data.createdAt is timestamp
           && request.resource.data.createdAt == request.time;
-        allow update, delete: if false;
+        allow update: if (isChatMember(chatId) && validMessageReactionChange())
+          || (admin()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHidden','hiddenBy','hiddenAt'])
+            && request.resource.data.isHidden == true
+            && request.resource.data.hiddenBy == request.auth.uid
+            && request.resource.data.hiddenAt == request.time);
+        allow delete: if isChatMember(chatId) && resource.data.fromUid == request.auth.uid;
       }
     }
+
+    match /lunaRooms/{roomId} {
+      allow get: if canReadRoom(roomId);
+      allow list: if isRoomMember(roomId);
+
+      allow create: if signedIn()
+        && validRoomId(roomId)
+        && request.resource.data.keys().hasAll([
+          'type', 'title', 'description', 'ownerUid', 'members', 'admins',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'type', 'title', 'description', 'ownerUid', 'members', 'admins',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.type in ['group', 'channel']
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 2
+        && request.resource.data.title.size() <= 60
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 300
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.members == [request.auth.uid]
+        && request.resource.data.admins == [request.auth.uid]
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if signedIn()
+        && request.resource.data.keys().hasAll([
+          'type', 'title', 'description', 'ownerUid', 'members', 'admins',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'type', 'title', 'description', 'ownerUid', 'members', 'admins',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.admins is list
+        && request.resource.data.admins.size() <= 50
+        && request.resource.data.admins.toSet().size() == request.resource.data.admins.size()
+        && request.resource.data.members is list
+        && request.resource.data.members.toSet().hasAll(request.resource.data.admins)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'description', 'members', 'admins', 'updatedAt'
+        ])
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            resource.data.ownerUid == request.auth.uid
+            && request.resource.data.members == resource.data.members
+            && request.auth.uid in request.resource.data.admins
+            && request.resource.data.title is string
+            && request.resource.data.title.size() >= 2
+            && request.resource.data.title.size() <= 60
+            && request.resource.data.description is string
+            && request.resource.data.description.size() <= 300
+          )
+          || (
+            request.resource.data.admins == resource.data.admins
+            && request.resource.data.title == resource.data.title
+            && request.resource.data.description == resource.data.description
+            && resource.data.members is list
+            && resource.data.members.size() < 50
+            && request.resource.data.members is list
+            && request.resource.data.members.size() == resource.data.members.size() + 1
+            && request.resource.data.members.toSet().hasAll(resource.data.members)
+            && request.auth.uid in request.resource.data.members
+            && !(request.auth.uid in resource.data.members)
+            && exists(roomInvitePath(roomId, request.auth.uid))
+            && get(roomInvitePath(roomId, request.auth.uid)).data.fromUid == resource.data.ownerUid
+            && get(roomInvitePath(roomId, request.auth.uid)).data.status == 'pending'
+            && getAfter(roomInvitePath(roomId, request.auth.uid)).data.status == 'accepted'
+          )
+        );
+
+      allow delete: if false;
+
+      match /receipts/{uid} {
+        allow get: if isRoomMember(roomId);
+        allow list: if isRoomMember(roomId) && request.query.limit <= 50;
+        allow create, update: if isRoomMember(roomId)
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasAll(['uid', 'lastReadAt'])
+          && request.resource.data.keys().hasOnly(['uid', 'lastReadAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.lastReadAt is timestamp
+          && request.resource.data.lastReadAt == request.time;
+        allow delete: if false;
+      }
+
+      match /typing/{uid} {
+        allow get: if isRoomMember(roomId);
+        allow list: if isRoomMember(roomId) && request.query.limit <= 20;
+        allow create, update: if isRoomMember(roomId)
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasAll(['uid', 'typing', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['uid', 'typing', 'updatedAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.typing is bool
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if isRoomMember(roomId) && request.auth.uid == uid;
+      }
+
+      match /messages/{messageId} {
+        allow get: if isRoomMember(roomId) || admin();
+        allow list: if isRoomMember(roomId) && request.query.limit <= 100;
+        allow create: if isRoomMember(roomId) && validRoomMessage(roomId);
+        allow update: if admin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHidden','hiddenBy','hiddenAt'])
+          && request.resource.data.isHidden == true
+          && request.resource.data.hiddenBy == request.auth.uid
+          && request.resource.data.hiddenAt == request.time;
+        allow delete: if false;
+      }
+    }
+
+    match /lunaRoomInvites/{inviteId} {
+      allow get, list: if signedIn()
+        && (resource.data.toUid == request.auth.uid
+          || resource.data.fromUid == request.auth.uid);
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll([
+          'roomId', 'toUid', 'fromUid', 'status', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'roomId', 'toUid', 'fromUid', 'status', 'createdAt'
+        ])
+        && validRoomId(request.resource.data.roomId)
+        && validUid(request.resource.data.toUid)
+        && request.resource.data.toUid != request.auth.uid
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt == request.time
+        && inviteId == request.resource.data.roomId + '~' + request.resource.data.toUid
+        && isFriend(request.resource.data.toUid)
+        && !isBlockedBetween(request.auth.uid, request.resource.data.toUid)
+        && existsAfter(roomPath(request.resource.data.roomId))
+        && getAfter(roomPath(request.resource.data.roomId)).data.ownerUid == request.auth.uid
+        && !(request.resource.data.toUid in getAfter(roomPath(request.resource.data.roomId)).data.members);
+
+      allow update: if signedIn()
+        && resource.data.toUid == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.roomId == resource.data.roomId
+        && request.resource.data.toUid == resource.data.toUid
+        && request.resource.data.fromUid == resource.data.fromUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.status in ['accepted', 'declined']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && (
+          request.resource.data.status == 'declined'
+          || (
+            exists(roomPath(resource.data.roomId))
+            && resource.data.fromUid == get(roomPath(resource.data.roomId)).data.ownerUid
+            && !(request.auth.uid in get(roomPath(resource.data.roomId)).data.members)
+            && getAfter(roomPath(resource.data.roomId)).data.members.size()
+              == get(roomPath(resource.data.roomId)).data.members.size() + 1
+            && getAfter(roomPath(resource.data.roomId)).data.members.toSet()
+              .hasAll(get(roomPath(resource.data.roomId)).data.members)
+            && request.auth.uid in getAfter(roomPath(resource.data.roomId)).data.members
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    match /posts/{postId} {
+      allow get, list: if signedIn();
+      allow create: if validPostCreate(postId);
+      allow update: if validPostDelete(postId) || validPostCounters(postId)
+        || (admin() && resource.data.isDeleted == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHidden','hiddenBy','hiddenAt'])
+          && request.resource.data.isHidden == true
+          && request.resource.data.hiddenBy == request.auth.uid
+          && request.resource.data.hiddenAt == request.time);
+      allow delete: if false;
+
+      match /likes/{uid} {
+        allow get: if signedIn() && request.auth.uid == uid;
+        allow list: if false;
+        allow create: if verified() && request.auth.uid == uid
+          && request.resource.data.keys().hasAll(['uid','createdAt'])
+          && request.resource.data.keys().hasOnly(['uid','createdAt'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.createdAt == request.time
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && get(/databases/$(database)/documents/posts/$(postId)).data.isDeleted == false
+          && getAfter(/databases/$(database)/documents/posts/$(postId)).data.likeCount
+            == get(/databases/$(database)/documents/posts/$(postId)).data.likeCount + 1;
+        allow update: if false;
+        allow delete: if verified() && request.auth.uid == uid
+          && resource.data.uid == request.auth.uid
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && get(/databases/$(database)/documents/posts/$(postId)).data.isDeleted == false
+          && getAfter(/databases/$(database)/documents/posts/$(postId)).data.likeCount
+            == get(/databases/$(database)/documents/posts/$(postId)).data.likeCount - 1;
+      }
+      match /comments/{commentId} {
+        allow get, list: if signedIn()
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && get(/databases/$(database)/documents/posts/$(postId)).data.isDeleted == false;
+        allow create: if validPostComment(postId, commentId);
+        allow update: if admin()
+          && resource.data.isHidden == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHidden','hiddenBy','hiddenAt'])
+          && request.resource.data.isHidden == true
+          && request.resource.data.hiddenBy == request.auth.uid
+          && request.resource.data.hiddenAt == request.time;
+        allow delete: if validPostCommentDelete(postId, commentId);
+      }
+    }
+    match /userPostIndex/{uid}/posts/{postId} {
+      allow get, list: if request.auth != null && request.auth.uid == uid;
+      allow create: if verified()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['createdAt', 'anonymous'])
+        && request.resource.data.keys().hasOnly(['createdAt', 'anonymous'])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.anonymous is bool
+        && existsAfter(/databases/$(database)/documents/posts/$(postId))
+        && getAfter(/databases/$(database)/documents/posts/$(postId)).data.createdAt == request.time
+        && existsAfter(/databases/$(database)/documents/postOwners/$(postId))
+        && getAfter(/databases/$(database)/documents/postOwners/$(postId)).data.uid == uid;
+      allow update, delete: if false;
+    }
+
+    match /postOwners/{postId} {
+      allow get: if request.auth != null && (resource.data.uid == request.auth.uid || moderator());
+      allow list: if false;
+      allow create: if validPostOwnerCreate(postId);
+      allow update, delete: if false;
+    }
+    match /lunaPresence/{uid} {
+      allow get: if request.auth != null && (request.auth.uid == uid
+        || (signedIn() && !isBlockedBetween(request.auth.uid, uid)
+          && (isFriend(uid) || get(/databases/$(database)/documents/lunaProfiles/$(uid)).data.visibility == 'public')
+          && exists(/databases/$(database)/documents/lunaPrivateProfiles/$(uid))
+          && get(/databases/$(database)/documents/lunaPrivateProfiles/$(uid)).data.presenceEnabled == true));
+      allow list: if false;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['lastSeen'])
+        && request.resource.data.lastSeen is timestamp && request.resource.data.lastSeen == request.time;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /lunaInterestCommunities/{communityId} {
+      allow get: if signedIn();
+      allow list: if signedIn() && request.query.limit <= 50;
+      allow create: if verified()
+        && communityId.matches('^ic_[A-Fa-f0-9]{32}$')
+        && request.resource.data.keys().hasAll(['ownerUid','title','interest','description','createdAt','updatedAt'])
+        && request.resource.data.keys().hasOnly(['ownerUid','title','interest','description','createdAt','updatedAt'])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.title is string && request.resource.data.title.size() >= 2 && request.resource.data.title.size() <= 50
+        && request.resource.data.interest is string && request.resource.data.interest.size() >= 2 && request.resource.data.interest.size() <= 40
+        && request.resource.data.description is string && request.resource.data.description.size() <= 240
+        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time
+        && existsAfter(communityMemberPath(communityId, request.auth.uid))
+        && getAfter(communityMemberPath(communityId, request.auth.uid)).data.role == 'owner';
+      allow update: if signedIn()
+        && get(communityMemberPath(communityId, request.auth.uid)).data.role == 'owner'
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','interest','description','updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() >= 2 && request.resource.data.title.size() <= 50
+        && request.resource.data.interest is string && request.resource.data.interest.size() >= 2 && request.resource.data.interest.size() <= 40
+        && request.resource.data.description is string && request.resource.data.description.size() <= 240
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+
+      match /members/{uid} {
+        allow get: if signedIn() && (request.auth.uid == uid || isCommunityMember(communityId));
+        allow list: if isCommunityMember(communityId) && request.query.limit <= 100;
+        allow create: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasAll(['uid','role','joinedAt'])
+          && request.resource.data.keys().hasOnly(['uid','role','joinedAt'])
+          && request.resource.data.uid == uid && request.resource.data.joinedAt == request.time
+          && ((request.resource.data.role == 'owner'
+              && getAfter(communityPath(communityId)).data.ownerUid == uid
+              && getAfter(communityPath(communityId)).data.createdAt == request.time)
+            || (request.resource.data.role == 'member' && exists(communityPath(communityId))));
+        allow update: if signedIn() && get(communityPath(communityId)).data.ownerUid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['uid','role','joinedAt'])
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.joinedAt == resource.data.joinedAt
+          && resource.data.role != 'owner' && request.resource.data.role in ['member','moderator'];
+        allow delete: if signedIn() && resource.data.role != 'owner'
+          && (request.auth.uid == uid || get(communityPath(communityId)).data.ownerUid == request.auth.uid);
+      }
+
+      match /posts/{postId} {
+        allow get: if isCommunityMember(communityId);
+        allow list: if isCommunityMember(communityId) && request.query.limit <= 100;
+        allow create: if verified() && isCommunityMember(communityId)
+          && request.resource.data.keys().hasAll(['authorUid','authorNick','text','createdAt'])
+          && request.resource.data.keys().hasOnly(['authorUid','authorNick','text','createdAt'])
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.authorNick == get(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid)).data.nick
+          && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1500
+          && request.resource.data.createdAt == request.time
+          && communityPostLimitIncremented(request.auth.uid, communityId, postId);
+        allow update: if false;
+        allow delete: if isCommunityMember(communityId)
+          && (resource.data.authorUid == request.auth.uid || isCommunityModerator(communityId));
+      }
+    }
+
   }
 }
