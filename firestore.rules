@@ -227,6 +227,163 @@ service cloud.firestore {
         );
     }
 
+
+    function postPath(postId) { return /databases/$(database)/documents/posts/$(postId); }
+    function postOwnerPath(postId) { return /databases/$(database)/documents/postOwners/$(postId); }
+    function postLikePath(postId, uid) { return /databases/$(database)/documents/posts/$(postId)/likes/$(uid); }
+    function postCommentPath(postId, commentId) { return /databases/$(database)/documents/posts/$(postId)/comments/$(commentId); }
+    function moderator() { return signedIn() && request.auth.token.moderator == true; }
+    function validPostCategory(value) { return value in ['Отношения', 'Красота', 'Жизнь', 'Учёба и работа', 'Другое']; }
+    function validPostTag(value) {
+      return value is string && value.size() >= 3 && value.size() <= 31
+        && value.matches('^#[A-Za-zА-Яа-яЁё0-9_]{2,30}$');
+    }
+    function validPostTags(tags) {
+      return tags is list && tags.size() <= 10 && tags.toSet().size() == tags.size()
+        && (tags.size() < 1 || validPostTag(tags[0]))
+        && (tags.size() < 2 || validPostTag(tags[1]))
+        && (tags.size() < 3 || validPostTag(tags[2]))
+        && (tags.size() < 4 || validPostTag(tags[3]))
+        && (tags.size() < 5 || validPostTag(tags[4]))
+        && (tags.size() < 6 || validPostTag(tags[5]))
+        && (tags.size() < 7 || validPostTag(tags[6]))
+        && (tags.size() < 8 || validPostTag(tags[7]))
+        && (tags.size() < 9 || validPostTag(tags[8]))
+        && (tags.size() < 10 || validPostTag(tags[9]));
+    }
+    function postOwnerCreated(postId, anonymous) {
+      let owner = postOwnerPath(postId);
+      let post = postPath(postId);
+      return existsAfter(owner)
+        && getAfter(owner).data.keys().hasOnly(['uid', 'createdAt', 'anonymous'])
+        && getAfter(owner).data.uid == request.auth.uid
+        && getAfter(owner).data.anonymous == anonymous
+        && getAfter(owner).data.createdAt == request.time
+        && existsAfter(post)
+        && getAfter(post).data.anonymous == anonymous;
+    }
+    function validPostCreate(postId) {
+      let d = request.resource.data;
+      let profile = /databases/$(database)/documents/lunaProfiles/$(request.auth.uid);
+      return verified()
+        && postId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && d.keys().hasAll(['text','category','createdAt','updatedAt','likeCount','commentCount','hashtags','anonymous','authorName','authorPhoto','isDeleted','counterEvent'])
+        && d.keys().hasOnly(['text','category','createdAt','updatedAt','likeCount','commentCount','hashtags','anonymous','authorName','authorPhoto','isDeleted','counterEvent'])
+        && d.text is string && d.text.size() > 0 && d.text.size() <= 2000
+        && validPostCategory(d.category)
+        && d.createdAt is timestamp && d.createdAt == request.time
+        && d.updatedAt is timestamp && d.updatedAt == request.time
+        && d.likeCount is int && d.likeCount == 0
+        && d.commentCount is int && d.commentCount == 0
+        && validPostTags(d.hashtags)
+        && d.anonymous is bool
+        && d.authorName is string && d.authorName.size() >= 2 && d.authorName.size() <= 40
+        && d.authorPhoto is string && d.authorPhoto.size() <= 600000
+        && d.isDeleted == false
+        && d.counterEvent is map
+        && d.counterEvent.keys().hasOnly(['kind','commentId'])
+        && d.counterEvent.kind == 'none' && d.counterEvent.commentId == ''
+        && (d.anonymous
+          ? d.authorName == 'Анонимно' && d.authorPhoto == ''
+          : exists(profile) && d.authorName == get(profile).data.nick
+            && d.authorPhoto == get(profile).data.photo)
+        && postOwnerCreated(postId, d.anonymous)
+        && postLimitIncremented(request.auth.uid, postId);
+    }
+    function validPostOwnerCreate(postId) {
+      let d = request.resource.data;
+      let post = postPath(postId);
+      return verified()
+        && d.keys().hasAll(['uid','createdAt','anonymous'])
+        && d.keys().hasOnly(['uid','createdAt','anonymous'])
+        && d.uid == request.auth.uid && d.createdAt == request.time && d.anonymous is bool
+        && existsAfter(post)
+        && getAfter(post).data.createdAt == d.createdAt
+        && getAfter(post).data.anonymous == d.anonymous;
+    }
+    function isPostOwner(postId) {
+      let owner = postOwnerPath(postId);
+      return signedIn() && exists(owner) && get(owner).data.uid == request.auth.uid;
+    }
+    function validPostDelete(postId) {
+      let d = request.resource.data;
+      return isPostOwner(postId) && resource.data.isDeleted == false
+        && d.isDeleted == true && d.text == '' && d.hashtags == []
+        && d.authorName == 'Запись удалена' && d.authorPhoto == ''
+        && d.likeCount == resource.data.likeCount && d.commentCount == resource.data.commentCount
+        && d.category == resource.data.category && d.createdAt == resource.data.createdAt
+        && d.anonymous == resource.data.anonymous && d.counterEvent == resource.data.counterEvent
+        && d.updatedAt == request.time
+        && d.diff(resource.data).affectedKeys().hasOnly(['isDeleted','text','hashtags','authorName','authorPhoto','updatedAt']);
+    }
+    function likeCreated(postId) {
+      let path = postLikePath(postId, request.auth.uid);
+      return !exists(path) && existsAfter(path)
+        && getAfter(path).data.uid == request.auth.uid && getAfter(path).data.createdAt == request.time;
+    }
+    function likeDeleted(postId) {
+      let path = postLikePath(postId, request.auth.uid);
+      return exists(path) && get(path).data.uid == request.auth.uid && !existsAfter(path);
+    }
+    function validPostCounters(postId) {
+      let d = request.resource.data;
+      let old = resource.data;
+      let event = d.counterEvent;
+      let commentPath = postCommentPath(postId, event.commentId);
+      return signedIn() && old.isDeleted == false && d.isDeleted == false
+        && d.createdAt == old.createdAt && d.text == old.text && d.category == old.category
+        && d.anonymous == old.anonymous && d.authorName == old.authorName
+        && d.authorPhoto == old.authorPhoto && d.hashtags == old.hashtags
+        && d.updatedAt == request.time && d.likeCount is int && d.commentCount is int
+        && d.likeCount >= 0 && d.commentCount >= 0 && d.counterEvent is map
+        && d.counterEvent.keys().hasOnly(['kind','commentId'])
+        && d.diff(old).affectedKeys().hasOnly(['likeCount','commentCount','counterEvent','updatedAt'])
+        && (
+          (d.likeCount == old.likeCount + 1 && d.commentCount == old.commentCount
+            && d.counterEvent == old.counterEvent && likeCreated(postId))
+          || (d.likeCount == old.likeCount - 1 && d.commentCount == old.commentCount
+            && d.counterEvent == old.counterEvent && likeDeleted(postId))
+          || (d.likeCount == old.likeCount && d.commentCount == old.commentCount + 1
+            && event.kind == 'comment-create' && event.commentId is string
+            && event.commentId.matches('^[A-Za-z0-9_-]{1,128}$')
+            && !exists(commentPath) && existsAfter(commentPath)
+            && getAfter(commentPath).data.authorUid == request.auth.uid
+            && getAfter(commentPath).data.createdAt == request.time)
+          || (d.likeCount == old.likeCount && d.commentCount == old.commentCount - 1
+            && event.kind == 'comment-delete' && event.commentId is string
+            && event.commentId.matches('^[A-Za-z0-9_-]{1,128}$')
+            && exists(commentPath) && get(commentPath).data.authorUid == request.auth.uid
+            && !existsAfter(commentPath))
+        );
+    }
+    function validPostComment(postId, commentId) {
+      let d = request.resource.data;
+      let post = postPath(postId);
+      let profile = /databases/$(database)/documents/lunaProfiles/$(request.auth.uid);
+      let event = getAfter(post).data.counterEvent;
+      return verified() && exists(post) && get(post).data.isDeleted == false
+        && d.keys().hasAll(['authorUid','authorName','authorPhoto','text','createdAt'])
+        && d.keys().hasOnly(['authorUid','authorName','authorPhoto','text','createdAt'])
+        && d.authorUid == request.auth.uid
+        && d.authorName is string && d.authorName.size() >= 2 && d.authorName.size() <= 40
+        && d.authorPhoto is string && d.authorPhoto.size() <= 600000
+        && d.text is string && d.text.size() > 0 && d.text.size() <= 1200
+        && d.createdAt is timestamp && d.createdAt == request.time
+        && existsAfter(post) && getAfter(post).data.commentCount == get(post).data.commentCount + 1
+        && event.kind == 'comment-create' && event.commentId == commentId
+        && exists(profile) && d.authorName == get(profile).data.nick
+        && d.authorPhoto == get(profile).data.photo;
+    }
+    function validPostCommentDelete(postId, commentId) {
+      let post = postPath(postId);
+      let event = getAfter(post).data.counterEvent;
+      return verified() && resource.data.authorUid == request.auth.uid
+        && exists(post) && get(post).data.isDeleted == false
+        && getAfter(post).data.commentCount == get(post).data.commentCount - 1
+        && event.kind == 'comment-delete' && event.commentId == commentId
+        && !existsAfter(postCommentPath(postId, commentId));
+    }
+
     function validProfile(uid) {
       let d = request.resource.data;
       let usernamePath = /databases/$(database)/documents/lunaUsernames/$(d.nickLower);
@@ -669,19 +826,60 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /lunaPosts/{postId} {
+    match /posts/{postId} {
       allow get, list: if signedIn();
+      allow create: if validPostCreate(postId);
+      allow update: if validPostDelete(postId) || validPostCounters(postId);
+      allow delete: if false;
+
+      match /likes/{uid} {
+        allow get: if signedIn() && request.auth.uid == uid;
+        allow list: if false;
+        allow create: if verified() && request.auth.uid == uid
+          && request.resource.data.keys().hasAll(['uid','createdAt'])
+          && request.resource.data.keys().hasOnly(['uid','createdAt'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.createdAt == request.time
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && get(/databases/$(database)/documents/posts/$(postId)).data.isDeleted == false
+          && getAfter(/databases/$(database)/documents/posts/$(postId)).data.likeCount
+            == get(/databases/$(database)/documents/posts/$(postId)).data.likeCount + 1;
+        allow update: if false;
+        allow delete: if verified() && request.auth.uid == uid
+          && resource.data.uid == request.auth.uid
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && get(/databases/$(database)/documents/posts/$(postId)).data.isDeleted == false
+          && getAfter(/databases/$(database)/documents/posts/$(postId)).data.likeCount
+            == get(/databases/$(database)/documents/posts/$(postId)).data.likeCount - 1;
+      }
+      match /comments/{commentId} {
+        allow get, list: if signedIn()
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && get(/databases/$(database)/documents/posts/$(postId)).data.isDeleted == false;
+        allow create: if validPostComment(postId, commentId);
+        allow update: if false;
+        allow delete: if validPostCommentDelete(postId, commentId);
+      }
+    }
+    match /userPostIndex/{uid}/posts/{postId} {
+      allow get, list: if signedIn() && request.auth.uid == uid;
       allow create: if verified()
-        && postId.matches('^[A-Za-z0-9_-]{1,128}$')
-        && request.resource.data.keys().hasAll(['authorUid', 'text', 'createdAt'])
-        && request.resource.data.keys().hasOnly(['authorUid', 'text', 'createdAt'])
-        && request.resource.data.authorUid == request.auth.uid
-        && request.resource.data.text is string
-        && request.resource.data.text.size() > 0
-        && request.resource.data.text.size() <= 2000
-        && request.resource.data.createdAt is timestamp
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['createdAt', 'anonymous'])
+        && request.resource.data.keys().hasOnly(['createdAt', 'anonymous'])
         && request.resource.data.createdAt == request.time
-        && postLimitIncremented(request.auth.uid, postId);
+        && request.resource.data.anonymous is bool
+        && existsAfter(/databases/$(database)/documents/posts/$(postId))
+        && getAfter(/databases/$(database)/documents/posts/$(postId)).data.createdAt == request.time
+        && existsAfter(/databases/$(database)/documents/postOwners/$(postId))
+        && getAfter(/databases/$(database)/documents/postOwners/$(postId)).data.uid == uid;
+      allow update, delete: if false;
+    }
+
+    match /postOwners/{postId} {
+      allow get: if signedIn() && (resource.data.uid == request.auth.uid || moderator());
+      allow list: if false;
+      allow create: if validPostOwnerCreate(postId);
       allow update, delete: if false;
     }
   }

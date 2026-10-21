@@ -279,6 +279,9 @@ a:focus-visible{outline:3px solid #000;outline-offset:3px}
  .app.chat-mode.chat-conversation-open .chat-header{padding-bottom:8px}
  .app.chat-mode.chat-conversation-open .chat-back{flex:0 0 auto;white-space:nowrap;padding:8px 10px}
 }
+
+/* Shared Firestore community feed */
+.feed-composer{display:grid;gap:8px}.feed-composer .field{margin:4px 0 8px}.feed-compose-row{display:grid;grid-template-columns:100px 1fr;align-items:center;gap:10px}.feed-compose-row .field{margin:0}.feed-anonymous{display:flex;align-items:flex-start;gap:10px;padding:10px 0;cursor:pointer}.feed-anonymous input{width:20px;height:20px;accent-color:#000;flex:0 0 auto}.feed-anonymous span{display:grid;gap:2px}.feed-anonymous small{color:#45443f;font-size:12px}.feed-toolbar{display:grid;grid-template-columns:auto minmax(150px,1fr);align-items:center;gap:10px;margin:18px 0 8px}.feed-toolbar .field{margin:0}.feed-tag-filter{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 8px;border:1px solid #76746e;border-radius:9px;background:#e7e5e4}.feed-tag-filter span{font-weight:700}.feed-loading,.feed-empty{display:grid;justify-items:center;gap:12px;padding:32px 16px;text-align:center;color:#45443f}.feed-spinner{width:27px;height:27px;border:3px solid #c4c3b6;border-top-color:#000;border-radius:50%;animation:feed-spin .8s linear infinite}@keyframes feed-spin{to{transform:rotate(360deg)}}.feed-post{margin:10px 0;padding:16px}.feed-post-head{display:flex;align-items:center;gap:10px}.feed-author{min-width:0;flex:1}.feed-author b{display:block}.feed-author small{display:block;color:#45443f;font-size:12px}.feed-category{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#45443f}.feed-post-body{font-size:15px;white-space:pre-wrap;overflow-wrap:anywhere}.feed-hashtags{display:flex;gap:5px;flex-wrap:wrap}.feed-hashtag{border:0;background:transparent;color:#252525;text-decoration:underline;text-underline-offset:3px;padding:3px 2px;font-size:13px;cursor:pointer}.feed-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;border-top:1px solid #8c8a82;padding-top:8px}.feed-actions .soft{margin:0}.feed-delete{margin-left:auto!important}.feed-comments{border-top:1px solid #8c8a82;margin-top:8px;padding-top:10px}.feed-comment{display:flex;align-items:flex-start;gap:8px;padding:8px 0}.feed-comment .avatar{width:32px;height:32px;flex-basis:32px;font-size:13px}.feed-comment-main{min-width:0;flex:1}.feed-comment-main p{margin:3px 0;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}.feed-comment-main small{font-size:11px;color:#45443f}.feed-comment-delete{border:0;background:none;text-decoration:underline;padding:2px;color:#000;font-size:11px}.feed-comment-form{display:flex;align-items:flex-end;gap:8px;margin-top:8px}.feed-comment-form .field{flex:1;min-height:42px;margin:0;resize:vertical}.feed-comment-form .btn{flex:0 0 auto}.feed-more{text-align:center;padding:12px}.feed-more .soft{border:1px solid #000;text-decoration:none}.feed-message{margin:10px 0}@media(max-width:520px){.feed-post{padding:13px}.feed-toolbar{grid-template-columns:1fr;gap:4px}.feed-compose-row{grid-template-columns:1fr;gap:5px}.feed-comment-form{align-items:stretch}.feed-comment-form .btn{padding:8px 10px}}
 </style>
 </head>
 <body>
@@ -308,7 +311,21 @@ a:focus-visible{outline:3px solid #000;outline-offset:3px}
 </div></div></div>
 </section>
 <dialog id="roomDialog" class="room-dialog"><form id="roomForm"><div class="room-dialog-head"><div><p class="muted">НОВАЯ ПЕРЕПИСКА</p><h2>Создать группу или канал</h2></div><button type="button" id="closeRoomDialog" class="soft" aria-label="Закрыть">✕</button></div><label class="field-label" for="roomType">Тип</label><select id="roomType" class="field"><option value="group">Группа — общаются все</option><option value="channel">Канал — пишет только создатель</option></select><label class="field-label" for="roomTitle">Название</label><input id="roomTitle" class="field" maxlength="60" required placeholder="Например, Девичник"><label class="field-label" for="roomDescription">Описание</label><textarea id="roomDescription" class="field" maxlength="300" rows="2" placeholder="О чём эта переписка?"></textarea><div class="room-member-head"><b>Пригласить подруг</b><span class="muted">Они подтвердят вступление</span></div><div id="roomMemberChoices" class="room-member-choices"></div><p id="roomFormStatus" class="muted"></p><div class="row room-dialog-actions"><button type="button" id="cancelRoom" class="soft">Отмена</button><button type="submit" class="btn" id="saveRoom">Создать</button></div></form></dialog>
-<section class="page" id="community"><h1>Девичник 💌</h1><p class="muted">Небольшие обсуждения для начала. Пока публикации хранятся только в этой открытой вкладке и не видны другим пользователям.</p><input class="field" id="postTitle" maxlength="100" placeholder="Название темы"><select class="field" id="postTopic"><option>Отношения</option><option>Красота</option><option>Жизнь</option><option>Учёба и работа</option><option>Другое</option></select><textarea class="field" id="postBody" rows="3" maxlength="2000" placeholder="Расскажи подробнее…"></textarea><button class="btn" id="publishPost">Опубликовать</button><div id="posts"></div></section>
+<section class="page" id="community">
+<h1>Девичник 💌</h1>
+<p class="muted">Общая лента LUNA: делись мыслями, поддерживай друг друга и находи обсуждения по интересам.</p>
+<div class="panel feed-composer">
+<label class="field-label" for="postBody">О чём хочешь поговорить?</label>
+<textarea class="field" id="postBody" rows="4" maxlength="2000" placeholder="Расскажи, что у тебя на душе… Добавь #хэштег"></textarea>
+<div class="feed-compose-row"><label class="field-label" for="postTopic">Категория</label><select class="field" id="postTopic"><option>Отношения</option><option>Красота</option><option>Жизнь</option><option>Учёба и работа</option><option>Другое</option></select></div>
+<label class="feed-anonymous"><input type="checkbox" id="postAnonymous"><span><b>Опубликовать анонимно</b><small>Другие участницы не увидят твоё имя и фото.</small></span></label>
+<div id="postComposeStatus" class="note" role="status" aria-live="polite"></div>
+<button class="btn" id="publishPost" type="button">Опубликовать</button>
+</div>
+<div class="feed-toolbar"><label class="field-label" for="postCategoryFilter">Лента</label><select class="field" id="postCategoryFilter"><option value="">Все категории</option><option>Отношения</option><option>Красота</option><option>Жизнь</option><option>Учёба и работа</option><option>Другое</option></select><div id="activeHashtagFilter" class="feed-tag-filter hidden"><span></span><button class="soft" id="clearHashtagFilter" type="button">Сбросить</button></div></div>
+<div id="posts" aria-live="polite"><div class="feed-loading"><span class="feed-spinner" aria-hidden="true"></span><span>Загружаем ленту…</span></div></div>
+<div id="feedMoreWrap" class="feed-more hidden"><button class="soft" id="loadMorePosts" type="button">Показать ещё 20 записей</button></div>
+</section>
 <section class="page" id="tarot"><h1>Таро и интуиция ✧</h1><p class="muted">Символы для саморефлексии, а не предсказание неизбежного.</p><div class="tarot" id="tarotCard"><b>☾</b>Твоя карта ждёт</div><div style="text-align:center"><button class="btn" id="drawCard">Вытянуть карту ✨</button></div><div class="panel" id="tarotMeaning">Подумай о вопросе и открой карту.</div><p class="note">Таро — развлечение и способ подумать о своих чувствах.</p></section>
 <section class="page" id="cycle"><h1>Мой цикл 🌸</h1><div class="panel"><label class="field-label" for="startDate">Дата начала последних месячных</label><input class="field" type="date" id="startDate"><button class="btn" id="saveCycle">Сохранить дату</button><p id="cycleMsg" class="muted">Добавь дату, чтобы отметить её в календаре.</p></div><div class="panel"><div class="row"><button class="soft" id="prevMonth">‹</button><h2 id="month" style="text-align:center"></h2><button class="soft" id="nextMonth">›</button></div><div class="calendar" id="calendar"></div></div><p class="note">Прогнозы приблизительны и не подходят для предотвращения беременности или диагностики. Дата хранится локально на этом устройстве.</p></section>
 <section class="page" id="games"><h1>Маленькие радости 🧸</h1><div class="petbox"><div class="muted">ТВОЙ ВИРТУАЛЬНЫЙ ДРУГ</div><div class="pet">🐱</div><h2>Плюша</h2><p id="petMood" class="muted">Плюша рада тебя видеть!</p><div class="stats"><div>🍓 Сытость<b id="food">70</b></div><div>💗 Счастье<b id="happy">70</b></div><div>⚡ Энергия<b id="energy">70</b></div></div><button class="soft" id="feedPet">🍓 Покормить</button><button class="soft" id="playPet">🎀 Играть</button><button class="soft" id="sleepPet">🌙 Спать</button></div><h2 style="margin-top:22px">Игры из GirlsGoGames 🎮</h2><p class="muted">Игры открываются на сайте издателя. Старые Flash-игры могут не работать на современных устройствах.</p><div class="tiles"><a class="tile" href="https://www.girlsgogames.ru/igra/dark-chocolate-blackberry-cheesecake-saras-cooking-class" target="_blank" rel="noopener noreferrer"><span class="emoji">🍰</span><strong>Кухня Сары: чизкейк</strong><small>Готовим десерт ↗</small></a><a class="tile" href="https://www.girlsgogames.ru/" target="_blank" rel="noopener noreferrer"><span class="emoji">👗</span><strong>Одевалки</strong><small>Каталог игр ↗</small></a><a class="tile" href="https://www.girlsgogames.ru/" target="_blank" rel="noopener noreferrer"><span class="emoji">💄</span><strong>Макияж и красота</strong><small>Каталог игр ↗</small></a></div></section>
@@ -338,16 +355,16 @@ function status(message,type){var el=$("authStatus");if(el){el.textContent=messa
 function socialStatus(id,message){var el=$(id);if(el)el.textContent=message;}
 function escapeHtml(value){return String(value==null?"":value).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 
-function wrapDocSnapshot(s){return {_ref:s.ref,id:s.id,exists:s.exists(),data:function(){return s.data()},get:function(field){return s.get(field)}}}
+function wrapDocSnapshot(s){return {_ref:s.ref,_snapshot:s,id:s.id,exists:s.exists(),data:function(){return s.data()},get:function(field){return s.get(field)}}}
 function wrapQuerySnapshot(s){return {docs:s.docs.map(wrapDocSnapshot),empty:s.empty,size:s.size,forEach:function(fn){s.forEach(function(d){fn(wrapDocSnapshot(d))})}}}
 function wrapDocument(ref){return {_ref:ref,id:ref.id,get:function(){return fsGetDoc(ref).then(wrapDocSnapshot)},set:function(data,options){return options?fsSetDoc(ref,data,options):fsSetDoc(ref,data)},update:function(data){return fsUpdateDoc(ref,data)},delete:function(){return fsDeleteDoc(ref)},collection:function(name){return wrapCollection(fsCollection(ref,name))},onSnapshot:function(next,error){return fsOnSnapshot(ref,function(s){next(wrapDocSnapshot(s))},error)}}}
-function wrapQuery(ref){return {where:function(field,op,value){return wrapQuery(fsQuery(ref,fsWhere(field,op,value)))},limit:function(count){return wrapQuery(fsQuery(ref,fsLimit(count)))},orderBy:function(field,direction){return wrapQuery(fsQuery(ref,fsOrderBy(field,direction)))},startAfter:function(snapshot){return wrapQuery(fsQuery(ref,fsStartAfter(snapshot._ref)))},get:function(){return fsGetDocs(ref).then(wrapQuerySnapshot)},onSnapshot:function(next,error){return fsOnSnapshot(ref,function(s){next(wrapQuerySnapshot(s))},error)}}}
+function wrapQuery(ref){return {where:function(field,op,value){return wrapQuery(fsQuery(ref,fsWhere(field,op,value)))},limit:function(count){return wrapQuery(fsQuery(ref,fsLimit(count)))},orderBy:function(field,direction){return wrapQuery(fsQuery(ref,fsOrderBy(field,direction)))},startAfter:function(snapshot){return wrapQuery(fsQuery(ref,fsStartAfter(snapshot._snapshot||snapshot._ref)))},get:function(){return fsGetDocs(ref).then(wrapQuerySnapshot)},onSnapshot:function(next,error){return fsOnSnapshot(ref,function(s){next(wrapQuerySnapshot(s))},error)}}}
 function wrapCollection(ref){var q=wrapQuery(ref);q.doc=function(id){return wrapDocument(fsDoc(ref,id))};q.add=function(data){return fsAddDoc(ref,data).then(wrapDocument)};return q}
 function makeFirestoreFacade(instance){return {collection:function(path){return wrapCollection(fsCollection(instance,path))},runTransaction:function(callback){return fsRunTransaction(instance,function(tx){var compatTx={get:function(ref){return tx.get(ref._ref).then(wrapDocSnapshot)},set:function(ref,data,options){if(options)tx.set(ref._ref,data,options);else tx.set(ref._ref,data);return this},update:function(ref,data){tx.update(ref._ref,data);return this},delete:function(ref){tx.delete(ref._ref);return this}};return callback(compatTx)})}}}
 function timeout(promise,ms){var timer;return Promise.race([promise,new Promise(function(_,reject){timer=setTimeout(function(){var e=new Error("Запрос к Firestore не завершился за "+Math.round(ms/1000)+" секунд. Это может быть интернет, ограничения API-ключа или настройки Firestore.");e.code="luna/timeout";reject(e)},ms)})]).finally(function(){clearTimeout(timer)})}
 function errorText(e){var code=e&&e.code||"";var map={"luna/timeout":"Запрос к Firestore не завершился за отведённое время. Проверь доступность Firestore и обнови страницу.","luna/nickname-taken":"Этот никнейм уже занят. Выбери другой.","luna/invalid-nickname":"Никнейм должен быть от 2 до 40 символов и не содержать /.","luna/request-stale":"Заявка уже обработана. Обновляю список.","luna/already-friends":"Вы уже подруги 💗","luna/profile-required":"Сначала сохрани свой никнейм в профиле.","luna/username-changed":"Этот никнейм уже изменился. Найди подругу ещё раз.","luna/request-pending":"Заявка уже отправлена 💌","luna/reverse-request-pending":"Эта участница уже отправила тебе заявку. Открой список заявок и нажми «Принять» 💗","luna/request-accepted":"Заявка уже была принята. Обнови список подруг.","luna/friend-limit":"Достигнут лимит: не более 5 заявок за час. Попробуй позже.","auth/email-already-in-use":"Эта почта уже зарегистрирована. Переключись на «Войти».","auth/invalid-email":"Введи корректный адрес электронной почты.","auth/weak-password":"Пароль должен содержать минимум 6 символов.","auth/invalid-credential":"Почта или пароль неверны. Проверь данные или восстанови пароль.","auth/user-not-found":"Аккаунт с этой почтой не найден. Создай аккаунт.","auth/wrong-password":"Неверный пароль. Используй восстановление пароля.","auth/operation-not-allowed":"В Firebase не включён Email/Password: Authentication → Sign-in method.","auth/network-request-failed":"Не удалось подключиться к Firebase. Проверь интернет и попробуй снова.","auth/too-many-requests":"Слишком много попыток. Подожди немного.","auth/unauthorized-domain":"Домен не разрешён. Добавь karinakolotovkina0-crypto.github.io в Firebase → Authentication → Settings → Authorized domains.","auth/invalid-api-key":"Firebase отклонил API-ключ. Проверь Web app config и ограничения ключа.","auth/app-not-authorized":"Firebase не разрешил вход этому приложению.","auth/configuration-not-found":"Проверь настройки Authentication в проекте luna-a9fa5.","permission-denied":"Firestore отклонил действие. Проверь, что новые правила Firestore опубликованы и соответствуют обновлённой версии LUNA.","unavailable":"Firestore недоступен. Проверь интернет.", "failed-precondition":"Firestore требует настройки индекса или базы. Пришли полный текст ошибки.", "not-found":"База или документ не найдены. Проверь, что используется проект luna-a9fa5."};return map[code]||("Ошибка "+(code||"без кода")+": "+(e&&e.message||"неизвестная ошибка"))}
 function setMode(next){mode=next;$("nickWrap").classList.toggle("hidden",mode!=="signup");$("authSubmit").textContent=mode==="signup"?"Создать аккаунт":"Войти";$("authPassword").autocomplete=mode==="signup"?"new-password":"current-password";$("modeSignup").style.fontWeight=mode==="signup"?"700":"400";$("modeLogin").style.fontWeight=mode==="login"?"700":"400";status(mode==="signup"?"Заполни поля, чтобы создать аккаунт.":"Введи почту и пароль от своего аккаунта.");}
-function page(id){document.querySelectorAll(".page").forEach(function(el){el.classList.toggle("active",el.id===id)});document.querySelectorAll("[data-page]").forEach(function(el){el.classList.toggle("active",el.dataset.page===id)});document.querySelector(".app").classList.toggle("chat-mode",id==="chat");document.querySelector(".app").classList.toggle("chat-conversation-open",id==="chat"&&!!(activeChatUid||activeRoomId));window.scrollTo({top:0,behavior:"auto"});if(id==="social")loadSocial();if(id==="chat"&&user)loadRooms();if(id==="cycle")renderCalendar()}
+function page(id){document.querySelectorAll(".page").forEach(function(el){el.classList.toggle("active",el.id===id)});document.querySelectorAll("[data-page]").forEach(function(el){el.classList.toggle("active",el.dataset.page===id)});document.querySelector(".app").classList.toggle("chat-mode",id==="chat");document.querySelector(".app").classList.toggle("chat-conversation-open",id==="chat"&&!!(activeChatUid||activeRoomId));window.scrollTo({top:0,behavior:"auto"});if(id==="social")loadSocial();if(id==="chat"&&user)loadRooms();if(id==="community")startFeed(false);if(id==="cycle")renderCalendar()}
 function updateEmailVerificationNotice(account){
   var panel=$("emailVerificationPanel");if(!panel)return;
   var needsVerification=!!(account&&!account.emailVerified);
@@ -367,7 +384,14 @@ async function resendVerification(){
   catch(e){status("Не удалось отправить письмо: "+errorText(e),"error")}
 }
 function showUser(u){
+  var previousUid=user&&user.uid;
   user=u;
+  if(previousUid!==(u&&u.uid)){
+    if(postListener){postListener();postListener=null}
+    if(postIndexListener){postIndexListener();postIndexListener=null}
+    stopComments();postCurrentDocs=[];postOlderDocs=[];postOwnerCache={};postFeedToken++;
+  }
+  if(!u){if(postListener){postListener();postListener=null}stopComments();postCurrentDocs=[];postOlderDocs=[];postOwnerCache={};if(postIndexListener){postIndexListener();postIndexListener=null}}
   $("authForms").classList.toggle("hidden",!!u);
   $("signedInPanel").classList.toggle("hidden",!u);
   if(u){
@@ -377,6 +401,7 @@ function showUser(u){
     updateEmailVerificationNotice(u);
     loadProfile();
     ensureProfileDoc(u).then(function(){return loadSocial()});
+    if($("community").classList.contains("active"))startFeed(true);
     status("Вход выполнен успешно 💗","success")
   }else{
     updateEmailVerificationNotice(null);
@@ -914,17 +939,199 @@ async function sendPhoto(file){
 
 var tarot=[["Звезда","Надежда и восстановление. Что помогает тебе снова видеть возможности?","✧"],["Императрица","Забота, творчество и связь со своими потребностями. Где тебе нужно больше нежности?","♛"],["Луна","Неопределённость и внутренний мир. Какие чувства стоит понять?","☾"],["Сила","Мягкая смелость и терпение. Как поддержать себя без давления?","♌"],["Солнце","Ясность, радость и простые удовольствия. Что сегодня сделает день светлее?","☼"],["Отшельник","Пауза и честный разговор с собой. Какой ответ ты уже почти знаешь?","♧"]];
 function drawCard(){var c=tarot[Math.floor(Math.random()*tarot.length)];$("tarotCard").innerHTML="<b>"+c[2]+"</b>"+c[0];$("tarotMeaning").innerHTML="<h2>"+c[0]+"</h2><p>"+c[1]+"</p><p class='muted'>Запиши, что эта мысль значит лично для тебя.</p>"}
-function renderPosts(){var el=$("posts");el.innerHTML=posts.map(function(p,i){return '<div class="post"><div class="muted">'+escapeHtml(p.topic)+'</div><h3>'+escapeHtml(p.title)+'</h3><p>'+escapeHtml(p.body)+'</p><button class="soft like-post" data-index="'+i+'">♡ '+p.likes+'</button></div>'}).join("")||'<p class="muted">Пока нет тем. Начни обсуждение первой ✨</p>'}
-function publishPost(){var title=$("postTitle").value.trim(),body=$("postBody").value.trim();if(!title){alert("Добавь название темы.");return}posts.unshift({title:title,topic:$("postTopic").value,body:body,likes:0});$("postTitle").value="";$("postBody").value="";renderPosts()}
+
+var communityCategories=["Отношения","Красота","Жизнь","Учёба и работа","Другое"];
+var postListener=null,postIndexListener=null,postOlderDocs=[],postCurrentDocs=[],postHasMore=true,postLoading=false,postFeedToken=0,postCategory="",postHashtag="",openedCommentPosts={},commentUnsubs={};
+function newFeedId(){if(window.crypto&&typeof window.crypto.randomUUID==="function")return window.crypto.randomUUID().replace(/-/g,"");var bytes=new Uint8Array(16);window.crypto.getRandomValues(bytes);return Array.from(bytes).map(function(b){return b.toString(16).padStart(2,"0")}).join("")}
+function postRef(id){return db.collection("posts").doc(id)}
+function postOwnerRef(id){return db.collection("postOwners").doc(id)}
+function postLikeRef(postId,uid){return postRef(postId).collection("likes").doc(uid)}
+function postCommentRef(postId,commentId){return postRef(postId).collection("comments").doc(commentId)}
+function postTextHashtags(text){var matches=String(text||"").match(/#[A-Za-zА-Яа-яЁё0-9_]{2,30}/g)||[];return Array.from(new Set(matches.map(function(tag){return tag.toLocaleLowerCase("ru-RU")}))).slice(0,10)}
+function feedError(e){var code=e&&e.code||"";if(code==="permission-denied")return "Firestore отклонил действие. Проверь, что правила этапа 2 опубликованы вместе с этой версией сайта.";if(code==="failed-precondition")return "Для этого фильтра ещё строится индекс Firestore. Подожди немного и обнови ленту.";if(code==="unavailable"||code==="deadline-exceeded")return "База временно недоступна. Проверь интернет и попробуй ещё раз.";return socialError(e)}
+function feedTime(value){if(!value||typeof value.toDate!=="function")return "только что";return value.toDate().toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+function feedAvatar(photo,name){return avatarMarkup(photo||"",name||"Анонимно","feed-avatar")}
+function feedTagsMarkup(tags){return (tags||[]).map(function(tag){return '<button class="feed-hashtag" type="button" data-hashtag="'+escapeHtml(tag)+'">'+escapeHtml(tag)+'</button>'}).join("")}
+function feedPostMarkup(doc){
+ var p=doc.data(),mine=!!(user&&postOwnerCache[doc.id]===user.uid),likes=Number.isInteger(p.likeCount)?p.likeCount:0,comments=Number.isInteger(p.commentCount)?p.commentCount:0;
+ if(p.isDeleted)return "";
+ var author=p.anonymous?"Анонимно":(p.authorName||"Участница LUNA"),photo=p.anonymous?"":(p.authorPhoto||"");
+ var avatar=p.anonymous?'<span class="avatar avatar-fallback">☾</span>':feedAvatar(photo,author);
+ return '<article class="post feed-post" data-post-id="'+escapeHtml(doc.id)+'"><div class="feed-post-head">'+avatar+'<div class="feed-author"><b>'+escapeHtml(author)+'</b><small>'+escapeHtml(feedTime(p.createdAt))+'</small></div><span class="feed-category">'+escapeHtml(p.category||"Другое")+'</span></div><p class="feed-post-body">'+escapeHtml(p.text||"")+'</p><div class="feed-hashtags">'+feedTagsMarkup(p.hashtags)+'</div><div class="feed-actions"><button class="soft feed-like" type="button" data-id="'+escapeHtml(doc.id)+'" aria-pressed="false">♡ <span>'+likes+'</span></button><button class="soft feed-comments-toggle" type="button" data-id="'+escapeHtml(doc.id)+'">Комментарии · '+comments+'</button>'+(mine?'<button class="soft feed-delete" type="button" data-id="'+escapeHtml(doc.id)+'">Удалить</button>':'')+'</div><div class="feed-comments'+(openedCommentPosts[doc.id]?"":" hidden")+'" id="comments-'+escapeHtml(doc.id)+'"></div></article>'
+}
+var postOwnerCache={};
+async function updateOwnPostStates(docs){
+ if(!user)return;
+ await Promise.all(docs.map(async function(doc){
+   var card=document.querySelector('.feed-post[data-post-id="'+CSS.escape(doc.id)+'"]');if(!card)return;
+   try{var snap=await postLikeRef(doc.id,user.uid).get();var button=card.querySelector(".feed-like");if(button){button.setAttribute("aria-pressed",snap.exists?"true":"false");button.firstChild.textContent=snap.exists?"♥ ":"♡ "}}
+   catch(ignore){}
+   try{var del=card.querySelector(".feed-delete");if(del)del.classList.toggle("hidden",postOwnerCache[doc.id]!==user.uid)}
+   catch(ignore){var ownBtn=card.querySelector(".feed-delete");if(ownBtn)ownBtn.classList.add("hidden")}
+ }))
+}
+function renderFeed(){
+ var el=$("posts");if(!el)return;
+ var docs=[],seen={};postCurrentDocs.concat(postOlderDocs).forEach(function(d){if(d&&!seen[d.id]){seen[d.id]=true;docs.push(d)}});
+ var visible=docs.filter(function(d){var p=d.data();return !p.isDeleted});
+ if(!user){el.innerHTML='<div class="feed-empty"><b>Войди в LUNA, чтобы читать ленту</b><span>Посты доступны участницам с аккаунтом.</span><button class="btn" type="button" data-page="profile">Войти</button></div>';$("feedMoreWrap").classList.add("hidden");return}
+ if(postLoading&&!docs.length){el.innerHTML='<div class="feed-loading"><span class="feed-spinner" aria-hidden="true"></span><span>Загружаем ленту…</span></div>';return}
+ if(!visible.length){el.innerHTML='<div class="feed-empty"><b>Здесь пока тихо ✨</b><span>'+(postHashtag?"По этому хэштегу пока нет записей.":"Будь первой: поделись тем, что важно.")+'</span></div>'}
+ else el.innerHTML=visible.map(feedPostMarkup).join("");
+ updateOwnPostStates(visible);
+ $("feedMoreWrap").classList.toggle("hidden",!postHasMore);
+}
+function makeFeedQuery(){
+ var q=db.collection("posts");
+ if(postCategory)q=q.where("category","==",postCategory);
+ if(postHashtag)q=q.where("hashtags","array-contains",postHashtag);
+ return q.orderBy("createdAt","desc");
+}
+function stopComments(){
+ Object.keys(commentUnsubs).forEach(function(id){commentUnsubs[id]();delete commentUnsubs[id]})
+}
+function startFeed(reset){
+ if(postListener){postListener();postListener=null}
+ if(reset){postOlderDocs=[];postCurrentDocs=[];postHasMore=true;postLoading=true;postFeedToken++;stopComments();openedCommentPosts={}}
+ if(!user||!db){postLoading=false;renderFeed();return}
+ var token=postFeedToken;
+ if(postIndexListener){postIndexListener();postIndexListener=null}
+ postIndexListener=db.collection("userPostIndex").doc(user.uid).collection("posts").onSnapshot(function(snap){
+  if(token!==postFeedToken)return;
+  postOwnerCache={};snap.docs.forEach(function(d){postOwnerCache[d.id]=user.uid});
+  renderFeed()
+ },function(e){if(token===postFeedToken)console.warn("Private post index unavailable:",e&&e.code||"unknown")});
+ try{
+  var query=makeFeedQuery().limit(20);
+  postListener=query.onSnapshot(function(snap){
+   if(token!==postFeedToken)return;
+   postCurrentDocs=snap.docs;postHasMore=snap.size===20;postLoading=false;renderFeed()
+  },function(e){if(token!==postFeedToken)return;postLoading=false;$("posts").innerHTML='<div class="status error feed-message" role="alert">'+escapeHtml(feedError(e))+'</div>';$("feedMoreWrap").classList.add("hidden")});
+  renderFeed()
+ }catch(e){postLoading=false;$("posts").innerHTML='<div class="status error feed-message">'+escapeHtml(feedError(e))+'</div>'}
+}
+async function loadMorePosts(){
+ if(postLoading||!postHasMore||!user)return;
+ var token=postFeedToken,all=postCurrentDocs.concat(postOlderDocs),cursor=all.length?all[all.length-1]:null;
+ if(!cursor)return;
+ postLoading=true;$("loadMorePosts").disabled=true;$("loadMorePosts").textContent="Загружаем…";
+ try{
+  var query=makeFeedQuery().startAfter(cursor).limit(20),snap=await query.get();
+  if(token!==postFeedToken)return;
+  var seen={};postCurrentDocs.concat(postOlderDocs).forEach(function(d){seen[d.id]=true});
+  snap.docs.forEach(function(d){if(!seen[d.id])postOlderDocs.push(d)});
+  postHasMore=snap.size===20;postLoading=false;renderFeed()
+ }catch(e){if(token===postFeedToken){postLoading=false;$("posts").insertAdjacentHTML("beforeend",'<div class="status error feed-message">'+escapeHtml(feedError(e))+'</div>')}}
+ finally{var b=$("loadMorePosts");if(b){b.disabled=false;b.textContent="Показать ещё 20 записей"}}
+}
+async function publishPost(){
+ if(!user||!db){$("postComposeStatus").textContent="Войди в аккаунт, чтобы опубликовать запись.";return}
+ if(!user.emailVerified){$("postComposeStatus").textContent="Подтверди почту в профиле, чтобы публиковать.";return}
+ var textValue=$("postBody").value.trim(),category=$("postTopic").value,anonymous=$("postAnonymous").checked;
+ if(!textValue){$("postComposeStatus").textContent="Напиши несколько слов перед публикацией.";return}
+ if(textValue.length>2000||communityCategories.indexOf(category)<0){$("postComposeStatus").textContent="Проверь текст и категорию записи.";return}
+ var button=$("publishPost"),label=button.textContent;button.disabled=true;button.textContent="Публикуем…";$("postComposeStatus").textContent="";
+ try{
+  var profileSnap=await profileRef(user.uid).get(),profile=profileSnap.exists?profileSnap.data():null;
+  if(!anonymous&&(!profile||!profile.nick))throw new Error("Сначала сохрани профиль с никнеймом.");
+  var postDocument=db.collection("posts").doc(newFeedId()),postId=postDocument.id,created=serverTimestamp(),limitRef=postLimitRef(user.uid),ownerDocument=postOwnerRef(postId),indexDocument=db.collection("userPostIndex").doc(user.uid).collection("posts").doc(postId);
+  var name=anonymous?"Анонимно":String(profile.nick),photo=anonymous?"":String(profile.photo||"");
+  if(name.length>40||photo.length>600000)throw new Error("Данные профиля не подходят для публикации.");
+  var tags=postTextHashtags(textValue);
+  await db.runTransaction(async function(tx){
+   var limitSnap=await tx.get(limitRef),old=limitSnap.exists?limitSnap.data():null,now=Date.now(),windowExpired=old&&old.windowStart&&typeof old.windowStart.toMillis==="function"&&now-old.windowStart.toMillis()>=3600000;
+   var events=old&&!windowExpired&&Array.isArray(old.events)?old.events.slice():[];
+   if(events.length>=10)throw new Error("Достигнут лимит: не более 10 публикаций в час.");
+   events.push(postId);
+   var limitData={windowStart:!old||windowExpired?created:old.windowStart,events:events,updatedAt:created};
+   tx.set(postDocument,{text:textValue,category:category,createdAt:created,updatedAt:created,likeCount:0,commentCount:0,hashtags:tags,anonymous:anonymous,authorName:name,authorPhoto:photo,isDeleted:false,counterEvent:{kind:"none",commentId:""}});
+   tx.set(ownerDocument,{uid:user.uid,createdAt:created,anonymous:anonymous});
+   tx.set(indexDocument,{createdAt:created,anonymous:anonymous});
+   tx.set(limitRef,limitData)
+  });
+  $("postBody").value="";$("postAnonymous").checked=false;$("postComposeStatus").textContent="Запись опубликована 💗"
+ }catch(e){$("postComposeStatus").textContent=feedError(e)}
+ finally{button.disabled=false;button.textContent=label}
+}
+async function togglePostLike(postId){
+ if(!user||!db)return;
+ var post=postRef(postId),like=postLikeRef(postId,user.uid);
+ try{
+  await db.runTransaction(async function(tx){
+   var snaps=await Promise.all([tx.get(post),tx.get(like)]),p=snaps[0],liked=snaps[1];
+   if(!p.exists||p.data().isDeleted)throw new Error("Эта запись уже недоступна.");
+   if(liked.exists){tx.delete(like);tx.update(post,{likeCount:Math.max(0,(p.data().likeCount||0)-1),updatedAt:serverTimestamp()})}
+   else{tx.set(like,{uid:user.uid,createdAt:serverTimestamp()});tx.update(post,{likeCount:(p.data().likeCount||0)+1,updatedAt:serverTimestamp()})}
+  })
+ }catch(e){$("postComposeStatus").textContent=feedError(e)}
+}
+async function deleteOwnPost(postId){
+ if(!user||!db)return;
+ if(!window.confirm("Удалить эту запись? Она исчезнет из ленты; модерация сохранит закрытую запись автора."))return;
+ var post=postRef(postId),owner=postOwnerRef(postId);
+ try{
+  await db.runTransaction(async function(tx){
+   var snaps=await Promise.all([tx.get(post),tx.get(owner)]),p=snaps[0],o=snaps[1];
+   if(!p.exists||!o.exists||o.data().uid!==user.uid)throw new Error("Удалить запись может только её автор.");
+   tx.update(post,{isDeleted:true,text:"",hashtags:[],authorName:"Запись удалена",authorPhoto:"",updatedAt:serverTimestamp()})
+  })
+ }catch(e){$("postComposeStatus").textContent=feedError(e)}
+}
+async function loadComments(postId){
+ var box=$("comments-"+postId);if(!box)return;
+ box.innerHTML='<div class="feed-loading"><span class="feed-spinner" aria-hidden="true"></span><span>Загружаем комментарии…</span></div>';
+ try{
+  var snap=await postRef(postId).collection("comments").orderBy("createdAt","desc").limit(20).get();
+  var comments=snap.docs.slice().reverse();
+  var list=comments.map(function(d){
+   var c=d.data(),mine=user&&c.authorUid===user.uid;
+   return '<div class="feed-comment" data-comment-id="'+escapeHtml(d.id)+'">'+feedAvatar(c.authorPhoto,c.authorName)+'<div class="feed-comment-main"><b>'+escapeHtml(c.authorName||"Участница LUNA")+'</b><p>'+escapeHtml(c.text||"")+'</p><small>'+escapeHtml(feedTime(c.createdAt))+'</small></div>'+(mine?'<button class="feed-comment-delete" type="button" data-post-id="'+escapeHtml(postId)+'" data-id="'+escapeHtml(d.id)+'">Удалить</button>':'')+'</div>'
+  }).join("");
+  box.innerHTML=list+'<form class="feed-comment-form" data-post-id="'+escapeHtml(postId)+'"><textarea class="field" maxlength="1200" rows="1" placeholder="Напиши поддерживающий комментарий…" aria-label="Комментарий" required></textarea><button class="btn" type="submit">Отправить</button></form>';
+  if(snap.size===20)box.insertAdjacentHTML("afterbegin",'<p class="muted">Показаны последние 20 комментариев.</p>')
+ }catch(e){box.innerHTML='<div class="status error">'+escapeHtml(feedError(e))+'</div>'}
+}
+async function addPostComment(postId,textValue,form){
+ if(!user||!db||!user.emailVerified){$("postComposeStatus").textContent="Войди и подтверди почту, чтобы комментировать.";return}
+ var text=textValue.trim();if(!text||text.length>1200)return;
+ var profileSnap=await profileRef(user.uid).get(),profile=profileSnap.exists?profileSnap.data():{};
+ if(!profile.nick)throw new Error("Сначала сохрани профиль с никнеймом.");
+ var comment=db.collection("posts").doc(postId).collection("comments").doc(newFeedId()),post=postRef(postId),event={kind:"comment-create",commentId:comment.id};
+ await db.runTransaction(async function(tx){
+  var parent=await tx.get(post);if(!parent.exists||parent.data().isDeleted)throw new Error("Запись удалена.");
+  tx.set(comment,{authorUid:user.uid,authorName:profile.nick,authorPhoto:profile.photo||"",text:text,createdAt:serverTimestamp()});
+  tx.update(post,{commentCount:(parent.data().commentCount||0)+1,counterEvent:event,updatedAt:serverTimestamp()})
+ });
+ openedCommentPosts[postId]=true;await loadComments(postId);if(form)form.reset()
+}
+async function deletePostComment(postId,commentId){
+ if(!user||!db)return;
+ var comment=postCommentRef(postId,commentId),post=postRef(postId),event={kind:"comment-delete",commentId:commentId};
+ try{
+  await db.runTransaction(async function(tx){
+   var snaps=await Promise.all([tx.get(post),tx.get(comment)]),parent=snaps[0],current=snaps[1];
+   if(!parent.exists||!current.exists||current.data().authorUid!==user.uid)throw new Error("Удалить комментарий может только его автор.");
+   tx.delete(comment);tx.update(post,{commentCount:Math.max(0,(parent.data().commentCount||0)-1),counterEvent:event,updatedAt:serverTimestamp()})
+  });
+  await loadComments(postId)
+ }catch(e){$("postComposeStatus").textContent=feedError(e)}
+}
+function setFeedFilter(){
+ postCategory=$("postCategoryFilter").value||"";
+ $("activeHashtagFilter").classList.toggle("hidden",!postHashtag);
+ $("activeHashtagFilter").querySelector("span").textContent=postHashtag?"Фильтр: "+postHashtag:"";
+ startFeed(true)
+}
 function petAction(action){if(action==="food"){pet.food=Math.min(100,pet.food+20);pet.happy=Math.min(100,pet.happy+4);$("petMood").textContent="Ням-ням! Плюша довольна 🍓"}if(action==="play"){pet.happy=Math.min(100,pet.happy+20);pet.energy=Math.max(0,pet.energy-15);pet.food=Math.max(0,pet.food-8);$("petMood").textContent="Ура, как весело! 🎀"}if(action==="sleep"){pet.energy=Math.min(100,pet.energy+25);$("petMood").textContent="Сладких снов, Плюша 🌙"}$("food").textContent=pet.food;$("happy").textContent=pet.happy;$("energy").textContent=pet.energy}
 function moveMonth(n){cycleDate.setMonth(cycleDate.getMonth()+n);renderCalendar()}
 function saveCycle(){periodStart=$("startDate").value;if(!periodStart){$("cycleMsg").textContent="Сначала выбери дату.";return}localStorage.setItem("luna_cycle_start",periodStart);$("cycleMsg").textContent="Отмечено начало месячных: "+new Date(periodStart+"T12:00:00").toLocaleDateString("ru-RU");renderCalendar()}
 function renderCalendar(){var y=cycleDate.getFullYear(),m=cycleDate.getMonth(),first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();$("month").textContent=new Date(y,m,1).toLocaleDateString("ru-RU",{month:"long",year:"numeric"});var out=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(function(x){return '<div class="muted">'+x+"</div>"}).join("");for(var i=0;i<(first+6)%7;i++)out+="<div></div>";var now=new Date();for(var d=1;d<=days;d++){var date=y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"),cl=[];if(periodStart&&date>=periodStart&&date<new Date(new Date(periodStart+"T12:00:00").getTime()+5*86400000).toISOString().slice(0,10))cl.push("period");if(d===now.getDate()&&m===now.getMonth()&&y===now.getFullYear())cl.push("today");out+='<div class="'+cl.join(" ")+'">'+d+"</div>"}$("calendar").innerHTML=out}
 document.querySelectorAll("[data-page]").forEach(function(el){el.addEventListener("click",function(){page(el.dataset.page)})});
 $("backToChatList").addEventListener("click",backToChatList);$("resendVerification").addEventListener("click",resendVerification);$("checkVerification").addEventListener("click",refreshVerificationState);$("createRoom").addEventListener("click",openRoomDialog);$("chatSearchIcon")&&$("chatSearchIcon").addEventListener("click",openRoomDialog);$("roomForm").addEventListener("submit",createRoom);$("roomType").addEventListener("change",function(){});$("closeRoomDialog").addEventListener("click",function(){$("roomDialog").close()});$("cancelRoom").addEventListener("click",function(){$("roomDialog").close()});
-$("modeSignup").addEventListener("click",function(){setMode("signup")});$("modeLogin").addEventListener("click",function(){setMode("login")});$("authForm").addEventListener("submit",submitAuth);$("resetPassword").addEventListener("click",resetPassword);$("saveProfile").addEventListener("click",saveProfile);$("signOut").addEventListener("click",signOut);$("searchFriend").addEventListener("click",searchFriend);$("chatComposer").addEventListener("submit",function(e){e.preventDefault();sendMessage()});$("choosePhoto").addEventListener("click",function(){$("chatPhotoInput").click()});$("chatPhotoInput").addEventListener("change",function(e){var file=e.target.files&&e.target.files[0];if(file)sendPhoto(file)});$("chatInput").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("chatComposer").requestSubmit()}});$("friendSearch").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();searchFriend()}});$("authEmail").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("authPassword").focus()}});$("publishPost").addEventListener("click",publishPost);$("drawCard").addEventListener("click",drawCard);$("saveCycle").addEventListener("click",saveCycle);$("prevMonth").addEventListener("click",function(){moveMonth(-1)});$("nextMonth").addEventListener("click",function(){moveMonth(1)});$("feedPet").addEventListener("click",function(){petAction("food")});$("playPet").addEventListener("click",function(){petAction("play")});$("sleepPet").addEventListener("click",function(){petAction("sleep")});
-document.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;if(b.classList.contains("add-friend"))sendRequest(b.dataset.uid,b.dataset.nick,b.dataset.nickLower);if(b.classList.contains("accept-request"))acceptRequest(b.dataset.id,true);if(b.classList.contains("decline-request"))acceptRequest(b.dataset.id,false);if(b.classList.contains("room-contact"))openRoom(b.dataset.roomId);else if(b.classList.contains("open-chat")||b.classList.contains("chat-contact"))openChat(b.dataset.uid,b.dataset.nick);if(b.classList.contains("room-invite-accept"))handleRoomInvite(b.dataset.id,true);if(b.classList.contains("room-invite-decline"))handleRoomInvite(b.dataset.id,false);if(b.classList.contains("sticker-button"))sendSticker(b.dataset.stickerUrl);if(b.classList.contains("like-post")){var p=posts[Number(b.dataset.index)];if(p){p.likes++;renderPosts()}}});
-try{periodStart=localStorage.getItem("luna_cycle_start")||"";$("startDate").value=periodStart}catch(e){}renderCalendar();renderPosts();setMode("signup");init();
+$("modeSignup").addEventListener("click",function(){setMode("signup")});$("modeLogin").addEventListener("click",function(){setMode("login")});$("authForm").addEventListener("submit",submitAuth);$("resetPassword").addEventListener("click",resetPassword);$("saveProfile").addEventListener("click",saveProfile);$("signOut").addEventListener("click",signOut);$("searchFriend").addEventListener("click",searchFriend);$("chatComposer").addEventListener("submit",function(e){e.preventDefault();sendMessage()});$("choosePhoto").addEventListener("click",function(){$("chatPhotoInput").click()});$("chatPhotoInput").addEventListener("change",function(e){var file=e.target.files&&e.target.files[0];if(file)sendPhoto(file)});$("chatInput").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("chatComposer").requestSubmit()}});$("friendSearch").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();searchFriend()}});$("authEmail").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("authPassword").focus()}});$("publishPost").addEventListener("click",publishPost);$("postCategoryFilter").addEventListener("change",setFeedFilter);$("clearHashtagFilter").addEventListener("click",function(){postHashtag="";setFeedFilter()});$("loadMorePosts").addEventListener("click",loadMorePosts);$("drawCard").addEventListener("click",drawCard);$("saveCycle").addEventListener("click",saveCycle);$("prevMonth").addEventListener("click",function(){moveMonth(-1)});$("nextMonth").addEventListener("click",function(){moveMonth(1)});$("feedPet").addEventListener("click",function(){petAction("food")});$("playPet").addEventListener("click",function(){petAction("play")});$("sleepPet").addEventListener("click",function(){petAction("sleep")});
+document.addEventListener("submit",function(e){var form=e.target.closest(".feed-comment-form");if(!form)return;e.preventDefault();var field=form.querySelector("textarea"),button=form.querySelector("button[type=submit]");button.disabled=true;addPostComment(form.dataset.postId,field.value,form).catch(function(error){$("postComposeStatus").textContent=feedError(error)}).finally(function(){button.disabled=false})});
+document.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;if(b.classList.contains("add-friend"))sendRequest(b.dataset.uid,b.dataset.nick,b.dataset.nickLower);if(b.classList.contains("accept-request"))acceptRequest(b.dataset.id,true);if(b.classList.contains("decline-request"))acceptRequest(b.dataset.id,false);if(b.classList.contains("room-contact"))openRoom(b.dataset.roomId);else if(b.classList.contains("open-chat")||b.classList.contains("chat-contact"))openChat(b.dataset.uid,b.dataset.nick);if(b.classList.contains("room-invite-accept"))handleRoomInvite(b.dataset.id,true);if(b.classList.contains("room-invite-decline"))handleRoomInvite(b.dataset.id,false);if(b.classList.contains("sticker-button"))sendSticker(b.dataset.stickerUrl);if(b.classList.contains("feed-like"))togglePostLike(b.dataset.id);if(b.classList.contains("feed-delete"))deleteOwnPost(b.dataset.id);if(b.classList.contains("feed-comments-toggle")){var id=b.dataset.id,box=$("comments-"+id);openedCommentPosts[id]=!openedCommentPosts[id];box.classList.toggle("hidden",!openedCommentPosts[id]);if(openedCommentPosts[id])loadComments(id)}if(b.classList.contains("feed-hashtag")){postHashtag=b.dataset.hashtag;$("activeHashtagFilter").classList.remove("hidden");setFeedFilter()}if(b.classList.contains("feed-comment-delete"))deletePostComment(b.dataset.postId,b.dataset.id)});
+try{periodStart=localStorage.getItem("luna_cycle_start")||"";$("startDate").value=periodStart}catch(e){}renderCalendar();setMode("signup");init();
 })();
 </script>
 </body>
