@@ -1,12 +1,29 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function admin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function moderator() {
+      return request.auth != null
+        && (request.auth.token.admin == true || request.auth.token.moderator == true);
+    }
+
     function signedIn() {
-      return request.auth != null;
+      return request.auth != null
+        && (admin() || !exists(/databases/$(database)/documents/lunaBans/$(request.auth.uid)));
+    }
+
+    function ageConsentPath(uid) {
+      return /databases/$(database)/documents/lunaAgeConsents/$(uid);
     }
 
     function verified() {
-      return signedIn() && request.auth.token.email_verified == true;
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && exists(ageConsentPath(request.auth.uid))
+        && get(ageConsentPath(request.auth.uid)).data.age14 == true;
     }
 
     function validUid(value) {
@@ -40,11 +57,22 @@ service cloud.firestore {
         && uid in get(pairPath(request.auth.uid, uid)).data.members;
     }
 
+    function blockPath(ownerUid, blockedUid) {
+      return /databases/$(database)/documents/lunaBlocks/$(ownerUid)/users/$(blockedUid);
+    }
+
+    function isBlockedBetween(uidA, uidB) {
+      return exists(blockPath(uidA, uidB)) || exists(blockPath(uidB, uidA));
+    }
+
     function isChatMember(chatId) {
       let friendPath = /databases/$(database)/documents/lunaFriends/$(chatId);
+      let members = get(friendPath).data.members;
       return signedIn()
         && exists(friendPath)
-        && request.auth.uid in get(friendPath).data.members;
+        && request.auth.uid in members
+        && members.size() == 2
+        && !isBlockedBetween(members[0], members[1]);
     }
 
     function validRoomId(value) {
@@ -232,7 +260,6 @@ service cloud.firestore {
     function postOwnerPath(postId) { return /databases/$(database)/documents/postOwners/$(postId); }
     function postLikePath(postId, uid) { return /databases/$(database)/documents/posts/$(postId)/likes/$(uid); }
     function postCommentPath(postId, commentId) { return /databases/$(database)/documents/posts/$(postId)/comments/$(commentId); }
-    function moderator() { return signedIn() && request.auth.token.moderator == true; }
     function validPostCategory(value) { return value in ['Отношения', 'Красота', 'Жизнь', 'Учёба и работа', 'Другое']; }
     function validPostTag(value) {
       return value is string && value.size() >= 3 && value.size() <= 31
@@ -268,7 +295,7 @@ service cloud.firestore {
       return verified()
         && postId.matches('^[A-Za-z0-9_-]{1,128}$')
         && d.keys().hasAll(['text','category','createdAt','updatedAt','likeCount','commentCount','hashtags','anonymous','authorName','authorPhoto','isDeleted','counterEvent'])
-        && d.keys().hasOnly(['text','category','createdAt','updatedAt','likeCount','commentCount','hashtags','anonymous','authorName','authorPhoto','isDeleted','counterEvent'])
+        && d.keys().hasOnly(['text','category','createdAt','updatedAt','likeCount','commentCount','hashtags','anonymous','authorName','authorPhoto','isDeleted','counterEvent','authorUid','isHidden','hiddenBy','hiddenAt'])
         && d.text is string && d.text.size() > 0 && d.text.size() <= 2000
         && validPostCategory(d.category)
         && d.createdAt is timestamp && d.createdAt == request.time
@@ -280,12 +307,17 @@ service cloud.firestore {
         && d.authorName is string && d.authorName.size() >= 2 && d.authorName.size() <= 40
         && d.authorPhoto is string && d.authorPhoto.size() <= 600000
         && d.isDeleted == false
+        && (!('isHidden' in d) || d.isHidden == false)
+        && (!('hiddenBy' in d) || d.hiddenBy == '')
+        && (!('hiddenAt' in d) || d.hiddenAt == null)
         && d.counterEvent is map
         && d.counterEvent.keys().hasOnly(['kind','commentId'])
         && d.counterEvent.kind == 'none' && d.counterEvent.commentId == ''
         && (d.anonymous
           ? d.authorName == 'Анонимно' && d.authorPhoto == ''
-          : exists(profile) && d.authorName == get(profile).data.nick
+            && !('authorUid' in d)
+          : exists(profile) && d.authorUid == request.auth.uid
+            && d.authorName == get(profile).data.nick
             && d.authorPhoto == get(profile).data.photo)
         && postOwnerCreated(postId, d.anonymous)
         && postLimitIncremented(request.auth.uid, postId);
@@ -303,7 +335,7 @@ service cloud.firestore {
     }
     function isPostOwner(postId) {
       let owner = postOwnerPath(postId);
-      return signedIn() && exists(owner) && get(owner).data.uid == request.auth.uid;
+      return request.auth != null && exists(owner) && get(owner).data.uid == request.auth.uid;
     }
     function validPostDelete(postId) {
       let d = request.resource.data;
@@ -313,8 +345,17 @@ service cloud.firestore {
         && d.likeCount == resource.data.likeCount && d.commentCount == resource.data.commentCount
         && d.category == resource.data.category && d.createdAt == resource.data.createdAt
         && d.anonymous == resource.data.anonymous && d.counterEvent == resource.data.counterEvent
+        && ((!('authorUid' in resource.data) && !('authorUid' in d))
+          || ('authorUid' in resource.data && resource.data.authorUid == request.auth.uid
+            && 'authorUid' in d && d.authorUid == ''))
+        && (('isHidden' in resource.data && 'isHidden' in d && d.isHidden == resource.data.isHidden)
+          || (!('isHidden' in resource.data) && !('isHidden' in d)))
+        && (('hiddenBy' in resource.data && 'hiddenBy' in d && d.hiddenBy == resource.data.hiddenBy)
+          || (!('hiddenBy' in resource.data) && !('hiddenBy' in d)))
+        && (('hiddenAt' in resource.data && 'hiddenAt' in d && d.hiddenAt == resource.data.hiddenAt)
+          || (!('hiddenAt' in resource.data) && !('hiddenAt' in d)))
         && d.updatedAt == request.time
-        && d.diff(resource.data).affectedKeys().hasOnly(['isDeleted','text','hashtags','authorName','authorPhoto','updatedAt']);
+        && d.diff(resource.data).affectedKeys().hasOnly(['isDeleted','text','hashtags','authorName','authorPhoto','updatedAt','authorUid']);
     }
     function likeCreated(postId) {
       let path = postLikePath(postId, request.auth.uid);
@@ -332,6 +373,14 @@ service cloud.firestore {
       let commentPath = postCommentPath(postId, event.commentId);
       return signedIn() && old.isDeleted == false && d.isDeleted == false
         && d.createdAt == old.createdAt && d.text == old.text && d.category == old.category
+        && (('authorUid' in old && 'authorUid' in d && d.authorUid == old.authorUid)
+          || (!('authorUid' in old) && !('authorUid' in d)))
+        && (('isHidden' in old && 'isHidden' in d && d.isHidden == old.isHidden)
+          || (!('isHidden' in old) && !('isHidden' in d)))
+        && (('hiddenBy' in old && 'hiddenBy' in d && d.hiddenBy == old.hiddenBy)
+          || (!('hiddenBy' in old) && !('hiddenBy' in d)))
+        && (('hiddenAt' in old && 'hiddenAt' in d && d.hiddenAt == old.hiddenAt)
+          || (!('hiddenAt' in old) && !('hiddenAt' in d)))
         && d.anonymous == old.anonymous && d.authorName == old.authorName
         && d.authorPhoto == old.authorPhoto && d.hashtags == old.hashtags
         && d.updatedAt == request.time && d.likeCount is int && d.commentCount is int
@@ -363,8 +412,9 @@ service cloud.firestore {
       let event = getAfter(post).data.counterEvent;
       return verified() && exists(post) && get(post).data.isDeleted == false
         && d.keys().hasAll(['authorUid','authorName','authorPhoto','text','createdAt'])
-        && d.keys().hasOnly(['authorUid','authorName','authorPhoto','text','createdAt'])
+        && d.keys().hasOnly(['authorUid','authorName','authorPhoto','text','createdAt','isHidden'])
         && d.authorUid == request.auth.uid
+        && d.isHidden == false
         && d.authorName is string && d.authorName.size() >= 2 && d.authorName.size() <= 40
         && d.authorPhoto is string && d.authorPhoto.size() <= 600000
         && d.text is string && d.text.size() > 0 && d.text.size() <= 1200
@@ -388,7 +438,8 @@ service cloud.firestore {
       let d = request.resource.data;
       let usernamePath = /databases/$(database)/documents/lunaUsernames/$(d.nickLower);
       return d.keys().hasAll(['nick', 'nickLower', 'bio', 'interests', 'photo', 'updatedAt'])
-        && d.keys().hasOnly(['nick', 'nickLower', 'bio', 'interests', 'photo', 'updatedAt'])
+        && d.keys().hasOnly(['nick', 'nickLower', 'bio', 'interests', 'photo', 'updatedAt', 'visibility'])
+        && (!('visibility' in d) || d.visibility in ['private', 'public'])
         && validNick(d.nick)
         && validNick(d.nickLower)
         && d.bio is string
@@ -462,25 +513,123 @@ service cloud.firestore {
     }
 
     match /lunaProfiles/{uid} {
-      allow get: if signedIn()
-        && (request.auth.uid == uid
-          || (isFriend(uid)
+      allow get: if (request.auth != null && request.auth.uid == uid)
+        || (signedIn() && moderator()
+          || (((isFriend(uid) || resource.data.visibility == 'public')
+            && !isBlockedBetween(request.auth.uid, uid))
             && resource.data.keys().hasOnly([
-              'nick', 'nickLower', 'bio', 'interests', 'photo', 'updatedAt'
+              'nick', 'nickLower', 'bio', 'interests', 'photo', 'updatedAt', 'visibility'
             ])));
       allow list: if false;
       allow create, update: if signedIn()
         && request.auth.uid == uid
         && validProfile(uid);
-      allow delete: if false;
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     match /lunaPrivateProfiles/{uid} {
-      allow get: if signedIn() && request.auth.uid == uid;
+      allow get: if request.auth != null && request.auth.uid == uid;
       allow list: if false;
       allow create, update: if signedIn()
         && request.auth.uid == uid
         && validPrivateProfile();
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /lunaAgeConsents/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || admin());
+      allow list: if false;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['uid','age14','acceptedAt','policyVersion'])
+        && request.resource.data.keys().hasOnly(['uid','age14','acceptedAt','policyVersion'])
+        && request.resource.data.uid == uid
+        && request.resource.data.age14 == true
+        && request.resource.data.acceptedAt == request.time
+        && request.resource.data.policyVersion == '1';
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /lunaBlocks/{ownerUid}/users/{blockedUid} {
+      allow get, list: if signedIn() && request.auth.uid == ownerUid;
+      allow create: if verified() && request.auth.uid == ownerUid
+        && ownerUid != blockedUid && validUid(blockedUid)
+        && request.resource.data.keys().hasAll(['uid','createdAt'])
+        && request.resource.data.keys().hasOnly(['uid','createdAt'])
+        && request.resource.data.uid == blockedUid
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == ownerUid;
+    }
+
+    match /lunaBans/{uid} {
+      allow get, list: if admin();
+      allow create, update: if admin()
+        && request.resource.data.keys().hasAll(['uid','reason','createdAt','adminUid'])
+        && request.resource.data.keys().hasOnly(['uid','reason','createdAt','adminUid'])
+        && request.resource.data.uid == uid
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 500
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.adminUid == request.auth.uid;
+      allow delete: if admin();
+    }
+
+    match /reports/{reportId} {
+      allow create: if verified()
+        && reportId.size() >= 20 && reportId.size() <= 128
+        && request.resource.data.keys().hasAll([
+          'reporterUid','targetType','targetId','reason','details','targetSnapshot','createdAt','status'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'reporterUid','targetType','targetId','reason','details','targetSnapshot','createdAt','status'
+        ])
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.targetType in ['post','comment','message','profile']
+        && request.resource.data.targetId is string
+        && request.resource.data.targetId.size() <= 256
+        && request.resource.data.reason in ['spam','harassment','inappropriate','fraud','privacy','other']
+        && request.resource.data.details is string
+        && request.resource.data.details.size() <= 500
+        && request.resource.data.targetSnapshot is string
+        && request.resource.data.targetSnapshot.size() <= 500
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.status == 'open';
+      allow get, list: if admin()
+        || (signedIn() && resource.data.reporterUid == request.auth.uid);
+      allow update: if admin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','handledBy','handledAt'])
+        && request.resource.data.status in ['open','reviewing','resolved','dismissed']
+        && request.resource.data.handledBy == request.auth.uid
+        && request.resource.data.handledAt == request.time;
+      allow delete: if false;
+    }
+
+    match /moderationSettings/{settingId} {
+      allow get: if signedIn() && settingId == 'contentFilter';
+      allow list: if false;
+      allow create, update: if admin() && settingId == 'contentFilter'
+        && request.resource.data.keys().hasAll(['blockedWords','updatedAt'])
+        && request.resource.data.keys().hasOnly(['blockedWords','updatedAt'])
+        && request.resource.data.blockedWords is list
+        && request.resource.data.blockedWords.size() <= 100
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /lunaAccountDeletionRequests/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || admin());
+      allow list: if admin();
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.auth.token.email_verified == true
+        && request.resource.data.keys().hasAll(['uid','requestedAt','state'])
+        && request.resource.data.keys().hasOnly(['uid','requestedAt','state'])
+        && request.resource.data.uid == uid
+        && request.resource.data.requestedAt == request.time
+        && request.resource.data.state == 'requested';
+      allow update: if admin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state','handledAt'])
+        && request.resource.data.state in ['completed','rejected'];
       allow delete: if false;
     }
 
@@ -491,10 +640,10 @@ service cloud.firestore {
       allow update: if signedIn()
         && resource.data.uid == request.auth.uid
         && validUsername(nickLower);
-      allow delete: if signedIn()
+      allow delete: if request.auth != null
         && resource.data.uid == request.auth.uid
-        && existsAfter(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid))
-        && getAfter(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid)).data.nickLower != nickLower;
+        && (!existsAfter(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid))
+          || getAfter(/databases/$(database)/documents/lunaProfiles/$(request.auth.uid)).data.nickLower != nickLower);
     }
 
     match /lunaFriendRequestLimits/{uid} {
@@ -531,6 +680,7 @@ service cloud.firestore {
         && request.resource.data.fromUid == request.auth.uid
         && validUid(request.resource.data.toUid)
         && request.resource.data.toUid != request.auth.uid
+        && !isBlockedBetween(request.auth.uid, request.resource.data.toUid)
         && requestId == request.resource.data.fromUid + '~' + request.resource.data.toUid
         && request.resource.data.fromNick is string
         && request.resource.data.fromNick.size() >= 2
@@ -567,6 +717,8 @@ service cloud.firestore {
             && request.resource.data.toNickLower == resource.data.toNickLower
             && request.resource.data.createdAt == resource.data.createdAt
             && request.resource.data.status in ['accepted', 'declined']
+            && (request.resource.data.status == 'declined'
+              || !isBlockedBetween(resource.data.fromUid, resource.data.toUid))
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
             && (request.resource.data.status != 'accepted'
               || (existsAfter(pairPath(resource.data.fromUid, resource.data.toUid))
@@ -664,7 +816,8 @@ service cloud.firestore {
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow get, list: if isChatMember(chatId);
+        allow get: if isChatMember(chatId) || admin();
+        allow list: if isChatMember(chatId);
         allow create: if isChatMember(chatId)
           && request.resource.data.keys().hasAll(['fromUid', 'text', 'createdAt'])
           && request.resource.data.keys().hasOnly(['fromUid', 'text', 'createdAt', 'image'])
@@ -683,7 +836,13 @@ service cloud.firestore {
           )
           && request.resource.data.createdAt is timestamp
           && request.resource.data.createdAt == request.time;
-        allow update, delete: if false;
+        allow update: if admin()
+          && resource.data.keys().hasOnly(['fromUid','text','createdAt','image'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHidden','hiddenBy','hiddenAt'])
+          && request.resource.data.isHidden == true
+          && request.resource.data.hiddenBy == request.auth.uid
+          && request.resource.data.hiddenAt == request.time;
+        allow delete: if false;
       }
     }
 
@@ -769,9 +928,15 @@ service cloud.firestore {
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow get, list: if isRoomMember(roomId);
+        allow get: if isRoomMember(roomId) || admin();
+        allow list: if isRoomMember(roomId);
         allow create: if isRoomMember(roomId) && validRoomMessage(roomId);
-        allow update, delete: if false;
+        allow update: if admin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHidden','hiddenBy','hiddenAt'])
+          && request.resource.data.isHidden == true
+          && request.resource.data.hiddenBy == request.auth.uid
+          && request.resource.data.hiddenAt == request.time;
+        allow delete: if false;
       }
     }
 
@@ -796,6 +961,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && inviteId == request.resource.data.roomId + '~' + request.resource.data.toUid
         && isFriend(request.resource.data.toUid)
+        && !isBlockedBetween(request.auth.uid, request.resource.data.toUid)
         && existsAfter(roomPath(request.resource.data.roomId))
         && getAfter(roomPath(request.resource.data.roomId)).data.ownerUid == request.auth.uid
         && !(request.resource.data.toUid in getAfter(roomPath(request.resource.data.roomId)).data.members);
@@ -829,7 +995,12 @@ service cloud.firestore {
     match /posts/{postId} {
       allow get, list: if signedIn();
       allow create: if validPostCreate(postId);
-      allow update: if validPostDelete(postId) || validPostCounters(postId);
+      allow update: if validPostDelete(postId) || validPostCounters(postId)
+        || (admin() && resource.data.isDeleted == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHidden','hiddenBy','hiddenAt'])
+          && request.resource.data.isHidden == true
+          && request.resource.data.hiddenBy == request.auth.uid
+          && request.resource.data.hiddenAt == request.time);
       allow delete: if false;
 
       match /likes/{uid} {
@@ -857,12 +1028,17 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/posts/$(postId))
           && get(/databases/$(database)/documents/posts/$(postId)).data.isDeleted == false;
         allow create: if validPostComment(postId, commentId);
-        allow update: if false;
+        allow update: if admin()
+          && resource.data.isHidden == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHidden','hiddenBy','hiddenAt'])
+          && request.resource.data.isHidden == true
+          && request.resource.data.hiddenBy == request.auth.uid
+          && request.resource.data.hiddenAt == request.time;
         allow delete: if validPostCommentDelete(postId, commentId);
       }
     }
     match /userPostIndex/{uid}/posts/{postId} {
-      allow get, list: if signedIn() && request.auth.uid == uid;
+      allow get, list: if request.auth != null && request.auth.uid == uid;
       allow create: if verified()
         && request.auth.uid == uid
         && request.resource.data.keys().hasAll(['createdAt', 'anonymous'])
@@ -877,7 +1053,7 @@ service cloud.firestore {
     }
 
     match /postOwners/{postId} {
-      allow get: if signedIn() && (resource.data.uid == request.auth.uid || moderator());
+      allow get: if request.auth != null && (resource.data.uid == request.auth.uid || moderator());
       allow list: if false;
       allow create: if validPostOwnerCreate(postId);
       allow update, delete: if false;
