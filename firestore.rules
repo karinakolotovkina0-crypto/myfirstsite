@@ -529,11 +529,42 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/lunaProfiles/$(d.uid)).data.nickLower == d.nickLower;
     }
 
+    function validMessageReply(d) {
+      return !('replyTo' in d)
+        || (d.replyTo is map
+          && d.replyTo.keys().hasAll(['id', 'text'])
+          && d.replyTo.keys().hasOnly(['id', 'text'])
+          && d.replyTo.id is string
+          && d.replyTo.id.size() > 0
+          && d.replyTo.id.size() <= 128
+          && d.replyTo.text is string
+          && d.replyTo.text.size() <= 150);
+    }
+
+    function validMessageReactionChange() {
+      let d = request.resource.data;
+      return request.auth != null
+        && (!("isHidden" in resource.data) || resource.data.isHidden != true)
+        && d.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+        && d.reactions is map
+        && d.reactions.size() <= 100
+        && (
+          (!('reactions' in resource.data)
+            && d.reactions.keys().hasOnly([request.auth.uid]))
+          || ('reactions' in resource.data
+            && resource.data.reactions is map
+            && d.reactions.diff(resource.data.reactions).affectedKeys().hasOnly([request.auth.uid]))
+        )
+        && (!(request.auth.uid in d.reactions)
+          || d.reactions[request.auth.uid] == ''
+          || d.reactions[request.auth.uid] in ['❤️', '👍', '😂', '✨', '🥰']);
+    }
+
     function validRoomMessage(roomId) {
       let d = request.resource.data;
       let room = get(roomPath(roomId)).data;
       return d.keys().hasAll(['fromUid', 'text', 'createdAt'])
-        && d.keys().hasOnly(['fromUid', 'text', 'createdAt', 'image'])
+        && d.keys().hasOnly(['fromUid', 'text', 'createdAt', 'image', 'replyTo'])
         && d.fromUid == request.auth.uid
         && (
           (!d.keys().hasAny(['image'])
@@ -543,10 +574,11 @@ service cloud.firestore {
           || (d.keys().hasAny(['image'])
             && d.image is string
             && d.image.size() > 0
-            && d.image.size() <= 700000
+            && d.image.size() <= 280000
             && d.image.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$')
             && d.text == '')
         )
+        && validMessageReply(d)
         && d.createdAt is timestamp
         && d.createdAt == request.time
         && (
@@ -891,12 +923,39 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']);
       allow delete: if false;
 
+      match /receipts/{uid} {
+        allow get: if isChatMember(chatId);
+        allow list: if false;
+        allow create, update: if isChatMember(chatId)
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasAll(['uid', 'lastReadAt'])
+          && request.resource.data.keys().hasOnly(['uid', 'lastReadAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.lastReadAt is timestamp
+          && request.resource.data.lastReadAt == request.time;
+        allow delete: if false;
+      }
+
+      match /typing/{uid} {
+        allow get: if isChatMember(chatId);
+        allow list: if isChatMember(chatId) && request.query.limit <= 20;
+        allow create, update: if isChatMember(chatId)
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasAll(['uid', 'typing', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['uid', 'typing', 'updatedAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.typing is bool
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if isChatMember(chatId) && request.auth.uid == uid;
+      }
+
       match /messages/{messageId} {
         allow get: if isChatMember(chatId) || admin();
-        allow list: if isChatMember(chatId);
+        allow list: if isChatMember(chatId) && request.query.limit <= 100;
         allow create: if isChatMember(chatId)
           && request.resource.data.keys().hasAll(['fromUid', 'text', 'createdAt'])
-          && request.resource.data.keys().hasOnly(['fromUid', 'text', 'createdAt', 'image'])
+          && request.resource.data.keys().hasOnly(['fromUid', 'text', 'createdAt', 'image', 'replyTo'])
           && request.resource.data.fromUid == request.auth.uid
           && (
             (!request.resource.data.keys().hasAny(['image'])
@@ -906,19 +965,20 @@ service cloud.firestore {
             || (request.resource.data.keys().hasAny(['image'])
               && request.resource.data.image is string
               && request.resource.data.image.size() > 0
-              && request.resource.data.image.size() <= 700000
+              && request.resource.data.image.size() <= 280000
               && request.resource.data.image.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$')
               && request.resource.data.text == '')
           )
+          && validMessageReply(request.resource.data)
           && request.resource.data.createdAt is timestamp
           && request.resource.data.createdAt == request.time;
-        allow update: if admin()
-          && resource.data.keys().hasOnly(['fromUid','text','createdAt','image'])
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHidden','hiddenBy','hiddenAt'])
-          && request.resource.data.isHidden == true
-          && request.resource.data.hiddenBy == request.auth.uid
-          && request.resource.data.hiddenAt == request.time;
-        allow delete: if false;
+        allow update: if (isChatMember(chatId) && validMessageReactionChange())
+          || (admin()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHidden','hiddenBy','hiddenAt'])
+            && request.resource.data.isHidden == true
+            && request.resource.data.hiddenBy == request.auth.uid
+            && request.resource.data.hiddenAt == request.time);
+        allow delete: if isChatMember(chatId) && resource.data.fromUid == request.auth.uid;
       }
     }
 
@@ -1003,9 +1063,36 @@ service cloud.firestore {
 
       allow delete: if false;
 
+      match /receipts/{uid} {
+        allow get: if isRoomMember(roomId);
+        allow list: if isRoomMember(roomId) && request.query.limit <= 50;
+        allow create, update: if isRoomMember(roomId)
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasAll(['uid', 'lastReadAt'])
+          && request.resource.data.keys().hasOnly(['uid', 'lastReadAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.lastReadAt is timestamp
+          && request.resource.data.lastReadAt == request.time;
+        allow delete: if false;
+      }
+
+      match /typing/{uid} {
+        allow get: if isRoomMember(roomId);
+        allow list: if isRoomMember(roomId) && request.query.limit <= 20;
+        allow create, update: if isRoomMember(roomId)
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasAll(['uid', 'typing', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['uid', 'typing', 'updatedAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.typing is bool
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if isRoomMember(roomId) && request.auth.uid == uid;
+      }
+
       match /messages/{messageId} {
         allow get: if isRoomMember(roomId) || admin();
-        allow list: if isRoomMember(roomId);
+        allow list: if isRoomMember(roomId) && request.query.limit <= 100;
         allow create: if isRoomMember(roomId) && validRoomMessage(roomId);
         allow update: if admin()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHidden','hiddenBy','hiddenAt'])
