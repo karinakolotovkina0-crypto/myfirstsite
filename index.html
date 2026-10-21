@@ -391,7 +391,7 @@ function showUser(u){
     if(postIndexListener){postIndexListener();postIndexListener=null}
     stopComments();postCurrentDocs=[];postOlderDocs=[];postOwnerCache={};postFeedToken++;
   }
-  if(!u){if(postListener){postListener();postListener=null}stopComments();postCurrentDocs=[];postOlderDocs=[];postOwnerCache={};if(postIndexListener){postIndexListener();postIndexListener=null}}
+  if(!u){if(postListener){postListener();postListener=null}stopComments();postCurrentDocs=[];postOlderDocs=[];postOwnerCache={};if(postIndexListener){postIndexListener();postIndexListener=null}renderFeed()}
   $("authForms").classList.toggle("hidden",!!u);
   $("signedInPanel").classList.toggle("hidden",!u);
   if(u){
