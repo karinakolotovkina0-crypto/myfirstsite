@@ -514,7 +514,7 @@ service cloud.firestore {
 
     match /lunaProfiles/{uid} {
       allow get: if (request.auth != null && request.auth.uid == uid)
-        || (signedIn() && moderator()
+        || (signedIn() && admin()
           || (((isFriend(uid) || resource.data.visibility == 'public')
             && !isBlockedBetween(request.auth.uid, uid))
             && resource.data.keys().hasOnly([
